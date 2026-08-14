@@ -1,0 +1,32 @@
+---
+title: "Course: Efficient LLM Inference on GPUs"
+author:
+    name: Pankaj Pansari
+    affiliation: Plaksha University
+    url: https://pankajpansari.github.io/
+---
+
+This page contains materials used as part of the Machine Learning Systems (ML Systems) taught at Plaksha University in 2026. The material consists of slides, write-ups, and additional reading material.
+
+### Description
+
+LLMs place heavy demands on the systems that serve them: a single forward pass moves gigabytes of weights and cache data through the memory hierarchy. The deployment costs depend heavily on the throughput and latency one can extract from the GPUs. This course studies how modern LLMs are made to run efficiently, working from the hardware upward. This course studies how modern LLMs are made to run efficiently, working from the hardware upward. 
+
+We begin with an analytical framework for reasoning about performance: arithmetic intensity, the roofline model, and careful accounting of FLOPs and bytes a transformer layer consumes. We then treat the GPU as a machine, discussing its memory hierarchy and execution model. We also study the CUDA programming model used to write high-performance kernels, with matrix multiplication as the running example. The second half of the course focuses on computational characteristics of LLM inference (prefill, decode, KV-cache) and the system techniques that make serving practical at scale.
+
+The focus of this course is on inference of transformer-based LLMs running on Nvidia GPUs.
+
+**Textbook**: The following book can be helpful for parts of the course:
+
+[How to Scale Your Model](https://jax-ml.github.io/scaling-book/) by Austin, J., Douglas, S., Frostig, R., Levskaya, A., Chen, C., Vikram, S., Lebron, F., Choy, P., Ramasesh, V., Webson, A., & Pope, R. (2025).  
+
+**Credits**: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course.
+
+**Feedback**: If you have found the material useful, or have suggestions on how it can be improved, I will be happy to hear from you. Please email me at pankaj.pansari@plaksha.edu.in 
+
+<hr style="border: 3px solid black;">
+
+### Lectures
+
+**Lecture 1: Introduction**
+
