@@ -1,0 +1,99 @@
+---
+title: "Introduction to ML Systems"
+author:
+    name: Pankaj Pansari
+    affiliation: Plaksha University
+---
+
+This course is a quantitative, systems-oriented deep dive into LLM inference. *Inference* is the process of giving a ML model an input and obtaining an output.
+
+::: {.intro-figure}
+![**Figure**: ML Inference](llm_inference.png)
+:::
+
+We use the term *serving* when talking about inference for several concurrent users. This also refers to a software stack that accepts user requests, schedules them, and executes inference.
+
+## Why Focus on LLM Inference?
+
+There are two reasons motivating our study of the LLM process in depth:
+
+### Scaling of usage
+
+With widespread adoption of AI, the LLM inference has become a significant computational workload. For example, Google has [reported](https://blog.google/innovation-and-ai/sundar-pichai-io-2026/) that its monthly inference workload grew from 9.7T tokens in May 2024 to ~480T tokens in May 2025 to ~3.2Q (quadrillion) tokens in May 2026. 
+
+There are two factors driving this rapid increase in inference compute:
+
+1. Number of users - growing as more people make increasing use of AI models.
+2. Inference scaling - a task no longer necessarily consists of one prompt followed by one response. 
+    a. Longer - reasoning models generate a lot of reasoning tokens before they answer
+    b. Wider - on difficult problems, test-time scaling is used; for example, sampling many candidate answers and picking the best one(s) as decided by a verifier
+    c. Deeper - agentic systems solve a complex task by repeatedly acting, observing, and adapting. Each step involves making LLM inference calls.
+
+### Computational challenges
+
+LLM inference poses special computational challenges that are distinct from training.
+
+1. The autoregressive nature of transformers means LLMs generate response token-by-token. This makes it harder to parallelize inference as compared to training. ^[Actually, the lack of parallelism is for the decode inference steps. The generation of first token (prefill) usually has adequate parallelism]
+
+2. As we discuss in a later lecture, inference comprises two phases - prefill (processing prompt and generation of first token) and decode (generation of subsequent tokens). The two phases have very different computational characteristics.
+
+3. Earlier interactive applications (simple chatbots) mainly needed to generate tokens at human reading speed. With reasoning and agentic models, generated tokens can lie on the critical path of a larger computation, making the token-generation latency requirements much tighter. 
+
+4. Our interactions have become long-context. Think about asking the LLM about a large codebase. Such long context place a lot of demand on constrained GPU memory in terms of both capacity and bandwidth. 
+
+5. Capable models today have parameters numbering hundreds of billions or even a few trillions. Such large models need to be sharded over multiple GPUs - this introduces additional communication costs that make it even harder to produce tokens at low latency.
+
+## A Puzzle 
+
+Let us give a prompt of 128 tokens to a Qwen3-8B model running on A100 GPU and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 34.9ms per token on average. The token generation throughput is 28.7 tokens/s. What is the simplest estimate for latency we can make? 
+
+The 8.2B parameter Qwen3-8B model does approximately 2 * (num of parameters) = 2 * (8.2 * 1e9) FLOPs = 16.4 GFLOPs per generated token. (We'll derive this thumb rule later).
+
+A100 advertises peak compute throughput as 312 TFLOPs/s (dense matrix multiplication, FP16 tensor cores). 16.4 GFLOPs/312 TFLOPs/s gives 0.05ms. Hence, we observe discrepancy by a factor of ~700x.
+
+Clearly, peak FLOPs alone is the wrong model for this workload. Why? One of our objectives is to learn enough systems concepts to reason about discrepancies such as this. 
+
+## Efficiency is Key
+
+ML workloads have to make use of hardware accelerators such as GPUs; these are expensive devices and have significant power demands. How efficiently our ML workload runs on the hardware has a direct bearing on cost and power consumption, and this becomes more critical when training or deploying models at scale. ML Systems gives us the concepts and tools with which to investigate computational bottlenecks and address them.
+
+## What is ML Systems?
+
+When we think about building an ML application, such as a chat assistant, the mental model we have is:
+
+(a) decide on the model architecture and source the training data
+(b) write training code in PyTorch that underneath makes use of optimized GPU libraries
+(c) run the training process on the hardware - a computer with ML accelerator such as GPU.
+
+::: {.intro-figure}
+![**Figure**: Naive model of ML application development](chat_assistant_naive.png)
+:::
+
+This model is adequate for small, working prototypes. But when it comes to developing applications that are trained and deployed at scale (ChatGPT, Claude, and others), and where cost and satisfying customer requirements are crucial, the picture becomes more complicated:
+
+::: {.intro-figure}
+![**Figure**: Model of *efficient* ML application development](chat_assistant_systems.png)
+:::
+
+(a) the application requirements now specify metrics like LLM serving throughput and token generation latency 
+(b) the design of the model itself considers how it can make efficient use of the hardware 
+    -   eg., by having more parallelism 
+(c) the software stack is also designed with the specific hardware in mind 
+    -   eg., matmul kernels in cuBLAS library have different implementations for A100 vs H100 GPU
+    -   eg., FlashAttention-3 is specific to Hopper GPU architectures and FlashAttention-4 to Blackwell architectures.
+
+For our purposes, ML Systems is the study of how model and workload, software stack, and hardware interact to meet model serving requirements such as throughput, latency, and cost.^[ML Systems is actually a much broader field concerned with the systems required to build and run machine learning models applications, including aspects like training infrastructure, fault tolerance, deployment, and monitoring. Here we study it through one particularly important setting of efficient LLM inference on GPUs. To see the broader lay of the land, one can glace through the recent proceedings of some good ML Systems conferences such as [MLSys](https://proceedings.mlsys.org/paper_files/paper/2026) and [OSDI](https://www.usenix.org/conference/osdi26/technical-sessions).]
+
+## Why Study ML Systems?
+
+1. Systems constraints decide what is feasible in terms of model inference: 
+    - FlashAttention: by avoiding materializing the quadratic attention matrix, it became more feasible for LLMs to handle long contexts.
+    - Mixture-of-expert (MoE) models: work on parallelism, routing, and communication make it feasible to 
+    - Continuous batching + KV paging: systems concepts that permit higher LLM serving concurrency and efficiency
+
+2. One can take a principled approach to make performance estimates, measure quantities experimentally, probe deeper using profilers and come to a hypothesis about possible software improvements.
+
+3. ML Systems concepts are more durable and apply even when the AI models and hardware they run on are evolving rapidly. ^[Eric Auld expresses this point neatly in his [post](https://ericauld.github.io/2025/03/04/math-to-gpu.html)]
+
+Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 34.9ms per token actually go, and what can be done to reduce it.
+

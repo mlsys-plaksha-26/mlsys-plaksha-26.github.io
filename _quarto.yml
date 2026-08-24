@@ -1,0 +1,12 @@
+project:
+  type: default
+
+format:
+  html:
+    css: styles.css
+    theme: default
+    toc: true
+    toc-depth: 3
+    smooth-scroll: true
+    code-copy: true
+    highlight-style: github

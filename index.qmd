@@ -6,7 +6,7 @@ author:
     url: https://pankajpansari.github.io/
 ---
 
-This page contains materials used as part of the Machine Learning Systems (ML Systems) taught at Plaksha University in 2026. The material consists of slides, write-ups, and additional reading material.
+This page contains materials used as part of the Machine Learning Systems taught at Plaksha University in 2026. For last year's offering, please see the [2025 course page](https://ai4103-mlsys.github.io/).
 
 ### Description
 
@@ -16,17 +16,19 @@ We begin with an analytical framework for reasoning about performance: arithmeti
 
 The focus of this course is on inference of transformer-based LLMs running on Nvidia GPUs.
 
-**Textbook**: The following book can be helpful for parts of the course:
+**Textbook**: The following books can be helpful for parts of the course:
 
 [How to Scale Your Model](https://jax-ml.github.io/scaling-book/) by Austin, J., Douglas, S., Frostig, R., Levskaya, A., Chen, C., Vikram, S., Lebron, F., Choy, P., Ramasesh, V., Webson, A., & Pope, R. (2025).  
 
-**Credits**: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course.
+*Programming Massively Parallel Processors: A Hands-on Approach* by Hwu, W.-m. W., Kirk, D. B., & El Hajj, I. 4th edition (2022)
 
-**Feedback**: If you have found the material useful, or have suggestions on how it can be improved, I will be happy to hear from you. Please email me at pankaj.pansari@plaksha.edu.in 
+**Credits**: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course.
 
 <hr style="border: 3px solid black;">
 
 ### Lectures
 
 **Lecture 1: Introduction**
+
+[Slides](slides/lecture1_intro.pdf)  [Notes](writeups/intro/introduction.html)
 
