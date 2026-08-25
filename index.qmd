@@ -32,3 +32,7 @@ The focus of this course is on inference of transformer-based LLMs running on Nv
 
 [Slides](slides/lecture1_intro.pdf)  [Notes](writeups/intro/introduction.html)
 
+**Lecture 2: Transformer FLOPs Accounting**
+
+[Notes](writeups/transformer_flops/transformer_flops.html)
+

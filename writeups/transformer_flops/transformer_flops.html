@@ -8,7 +8,7 @@
 
 <meta name="author" content="Pankaj Pansari">
 
-<title>Course: Efficient LLM Inference on GPUs</title>
+<title>Transformer FLOPs Accounting</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -24,20 +24,49 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="index_files/libs/clipboard/clipboard.min.js"></script>
-<script src="index_files/libs/quarto-html/quarto.js"></script>
-<script src="index_files/libs/quarto-html/popper.min.js"></script>
-<script src="index_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="index_files/libs/quarto-html/anchor.min.js"></script>
-<link href="index_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="index_files/libs/quarto-html/quarto-syntax-highlighting-7fd0fe4245b865325b8ce8dccb604d59.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="index_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="index_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="index_files/libs/bootstrap/bootstrap-6c8863d5bc949aecf8839d18886be96b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="transformer_flops_files/libs/clipboard/clipboard.min.js"></script>
+<script src="transformer_flops_files/libs/quarto-html/quarto.js"></script>
+<script src="transformer_flops_files/libs/quarto-html/popper.min.js"></script>
+<script src="transformer_flops_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="transformer_flops_files/libs/quarto-html/anchor.min.js"></script>
+<link href="transformer_flops_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="transformer_flops_files/libs/quarto-html/quarto-syntax-highlighting-7fd0fe4245b865325b8ce8dccb604d59.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="transformer_flops_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="transformer_flops_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="transformer_flops_files/libs/bootstrap/bootstrap-6c8863d5bc949aecf8839d18886be96b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <style>html{ scroll-behavior: smooth; }</style>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
-<link rel="stylesheet" href="styles.css">
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../styles.css">
 </head>
 
 <body>
@@ -48,8 +77,15 @@ ul.task-list li input[type="checkbox"] {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#description" id="toc-description" class="nav-link active" data-scroll-target="#description">Description</a></li>
-  <li><a href="#lectures" id="toc-lectures" class="nav-link" data-scroll-target="#lectures">Lectures</a></li>
+  <li><a href="#preliminaries" id="toc-preliminaries" class="nav-link active" data-scroll-target="#preliminaries">Preliminaries</a></li>
+  <li><a href="#flops-and-params-calculations" id="toc-flops-and-params-calculations" class="nav-link" data-scroll-target="#flops-and-params-calculations">FLOPs and Params Calculations</a>
+  <ul class="collapse">
+  <li><a href="#mlps" id="toc-mlps" class="nav-link" data-scroll-target="#mlps">MLPs</a></li>
+  <li><a href="#attention" id="toc-attention" class="nav-link" data-scroll-target="#attention">Attention</a></li>
+  <li><a href="#other-operations" id="toc-other-operations" class="nav-link" data-scroll-target="#other-operations">Other Operations</a></li>
+  <li><a href="#sdpa-vs-matmul-flops" id="toc-sdpa-vs-matmul-flops" class="nav-link" data-scroll-target="#sdpa-vs-matmul-flops">SDPA vs Matmul FLOPs</a></li>
+  <li><a href="#general-thumb-rule-for-transformer-inference-flops" id="toc-general-thumb-rule-for-transformer-inference-flops" class="nav-link" data-scroll-target="#general-thumb-rule-for-transformer-inference-flops">General thumb rule for Transformer Inference FLOPs</a></li>
+  </ul></li>
   </ul>
 </nav>
 </div>
@@ -57,7 +93,7 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Course: Efficient LLM Inference on GPUs</h1>
+<h1 class="title">Transformer FLOPs Accounting</h1>
 </div>
 
 
@@ -66,7 +102,7 @@ ul.task-list li input[type="checkbox"] {
   <div class="quarto-title-meta-heading">Affiliation</div>
   
     <div class="quarto-title-meta-contents">
-    <p class="author"><a href="https://pankajpansari.github.io/">Pankaj Pansari</a> </p>
+    <p class="author">Pankaj Pansari </p>
   </div>
   <div class="quarto-title-meta-contents">
         <p class="affiliation">
@@ -87,27 +123,149 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>This page contains materials used as part of the Machine Learning Systems taught at Plaksha University in 2026. For last year’s offering, please see the <a href="https://ai4103-mlsys.github.io/">2025 course page</a>.</p>
-<section id="description" class="level3">
-<h3 class="anchored" data-anchor-id="description">Description</h3>
-<p>LLMs place heavy demands on the systems that serve them: a single forward pass moves gigabytes of weights and cache data through the memory hierarchy. The deployment costs depend heavily on the throughput and latency one can extract from the GPUs. This course studies how modern LLMs are made to run efficiently, working from the hardware upward. This course studies how modern LLMs are made to run efficiently, working from the hardware upward.</p>
-<p>We begin with an analytical framework for reasoning about performance: arithmetic intensity, the roofline model, and careful accounting of FLOPs and bytes a transformer layer consumes. We then treat the GPU as a machine, discussing its memory hierarchy and execution model. We also study the CUDA programming model used to write high-performance kernels, with matrix multiplication as the running example. The second half of the course focuses on computational characteristics of LLM inference (prefill, decode, KV-cache) and the system techniques that make serving practical at scale.</p>
-<p>The focus of this course is on inference of transformer-based LLMs running on Nvidia GPUs.</p>
-<p><strong>Textbook</strong>: The following books can be helpful for parts of the course:</p>
-<p><a href="https://jax-ml.github.io/scaling-book/">How to Scale Your Model</a> by Austin, J., Douglas, S., Frostig, R., Levskaya, A., Chen, C., Vikram, S., Lebron, F., Choy, P., Ramasesh, V., Webson, A., &amp; Pope, R. (2025).</p>
-<p><em>Programming Massively Parallel Processors: A Hands-on Approach</em> by Hwu, W.-m. W., Kirk, D. B., &amp; El Hajj, I. 4th edition (2022)</p>
-<p><strong>Credits</strong>: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course.</p>
-<hr style="border: 3px solid black;">
+<p>In this writeup, we’ll calculate the number of FLOPs performed during a Transformer forward pass over a single sequence of <span class="math inline">\(S\)</span> tokens. Our treatment here closely follows the Transformer Accounting chapter of the Scaling book, but is adapted to forward-pass and considers a simpler architecture. <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> In case you need to brush up on Transformer details, please refer <a href="https://jalammar.github.io/illustrated-transformer/">this blog post</a> and <a href="https://web.stanford.edu/~jurafsky/slp3/7.pdf">this book chapter</a>.</p>
+<section id="preliminaries" class="level2">
+<h2 class="anchored" data-anchor-id="preliminaries">Preliminaries</h2>
+<ol type="1">
+<li><p>Dot product <span class="math inline">\(x[P].y[P]\)</span> needs <span class="math inline">\(P\)</span> multiplies and <span class="math inline">\(P - 1\)</span> additions; hence we do <span class="math inline">\(2P - 1\)</span> FLOPs in total. We can approximate this to <span class="math inline">\(2P\)</span> FLOPs when <span class="math inline">\(P\)</span> is large; henceforth, we’ll assume this.</p></li>
+<li><p>A matrix-vector product <span class="math inline">\(A[N, P]x[P]\)</span> involves doing <span class="math inline">\(N\)</span> dot products - one per row of A. In total, <span class="math inline">\(2NP\)</span> FLOPs are needed.</p></li>
+<li><p>A matrix-matrix product <span class="math inline">\(A[N, P]B[P, M]\)</span> gives an output of shape <span class="math inline">\([N, M]\)</span>. Element <span class="math inline">\((i, j)\)</span> is obtained by doing a dot product between <span class="math inline">\(i\)</span>-th row of <span class="math inline">\(A\)</span> and <span class="math inline">\(j\)</span>-th column of <span class="math inline">\(B\)</span>. In total, we do <span class="math inline">\(2NPM\)</span> FLOPs. We say that <span class="math inline">\(P\)</span> is the <em>contracting</em> dimension, since we sum up over this dimension when doing the dot product. This gives us a useful thumb-rule</p></li>
+</ol>
+<p><span class="math display">\[\begin{equation}
+[N, P] \times [P, M] \to [N, M]: 2NPM \text{ FLOPs}.
+\end{equation}\]</span></p>
+<ol start="4" type="1">
+<li>Sometimes we repeat an operation independently for every element of some dimension. For example, consider multiplying two tensors <span class="math inline">\(A[K, N, P]\)</span> and <span class="math inline">\(B[K, P, M]\)</span> in the following manner <span class="math display">\[\begin{equation}
+out(k, n, m) = \sum_{p} A[k, n, p]B[k, p, m].
+\end{equation}\]</span> In this case, the total FLOPs is <span class="math inline">\(K\)</span> times <span class="math inline">\(2NPM\)</span>, that is, <span class="math inline">\(2KNPM\)</span> FLOPs.</li>
+</ol>
+<div class="intro-figure">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="transformer_arch.png" class="img-fluid figure-img" style="width:99.0%"></p>
+<figcaption><strong>Figure</strong>: One Transformer layer with flow from top to bottom. For each operation, the input shape in on top-left, parameter shape on top-right and output shape at bottom. Adapted from the <a href="https://jax-ml.github.io/scaling-book/transformers/#transformer-accounting">Scaling book</a>.</figcaption>
+</figure>
+</div>
+</div>
 </section>
-<section id="lectures" class="level3">
-<h3 class="anchored" data-anchor-id="lectures">Lectures</h3>
-<p><strong>Lecture 1: Introduction</strong></p>
-<p><a href="slides/lecture1_intro.pdf">Slides</a> <a href="writeups/intro/introduction.html">Notes</a></p>
-<p><strong>Lecture 2: Transformer FLOPs Accounting</strong></p>
-<p><a href="writeups/transformer_flops/transformer_flops.html">Notes</a></p>
+<section id="flops-and-params-calculations" class="level2">
+<h2 class="anchored" data-anchor-id="flops-and-params-calculations">FLOPs and Params Calculations</h2>
+<p>We’ll calculate FLOPs for forward-pass on one layer on Transformer and multiply that value by <span class="math inline">\(L\)</span>, the number of layers in the model. We also need to account for the embedding and unembedding operations at the very start and end respectively.</p>
+<p>As a first approximation, we can ignore the FLOPs contribution of ReLU, layer norm, and softmax. These involve relatively few operations per element, so their FLOPs contribution is much smaller than those of tensor multiplications.</p>
+<section id="mlps" class="level3">
+<h3 class="anchored" data-anchor-id="mlps">MLPs</h3>
+<span class="math display">\[\begin{array}{ccc}
+\textrm{operation} &amp; \textrm{FLOPs} &amp; \textrm{params} \\
+\hline \\
+
+A[S,D] \cdot W_{\mathrm{in}}[D,F]
+    &amp; 2SDF &amp; DF \\[10pt]
+
+A[S,F] \cdot W_{\mathrm{out}}[F,D]
+    &amp; 2SDF &amp; DF \\[10pt]
+
+\hline \\
+&amp; 4SDF &amp; 2DF
+\end{array}\]</span>
+</section>
+<section id="attention" class="level3">
+<h3 class="anchored" data-anchor-id="attention">Attention</h3>
+<section id="linear-projections" class="level4">
+<h4 class="anchored" data-anchor-id="linear-projections">Linear Projections</h4>
+<span class="math display">\[\begin{array}{ccc}
+\textrm{operation} &amp; \textrm{FLOPs} &amp; \textrm{params} \\
+\hline \\
+
+A[S,D] \cdot W_Q[D,N,H]
+    &amp; 2SDNH &amp; DNH \\[10pt]
+
+A[S,D] \cdot W_K[D,N,H]
+    &amp; 2SDNH &amp; DNH \\[10pt]
+
+A[S,D] \cdot W_V[D,N,H]
+    &amp; 2SDNH &amp; DNH \\[10pt]
+
+A[S,N,H] \cdot W_O[N,H,D]
+    &amp; 2SDNH &amp; DNH \\[10pt]
+
+\hline \\
+&amp; 8SDNH &amp; 4DNH
+\end{array}\]</span>
+</section>
+<section id="scaled-dot-product-attention-sdpa" class="level4">
+<h4 class="anchored" data-anchor-id="scaled-dot-product-attention-sdpa">Scaled Dot product Attention (SDPA)</h4>
+<p>SDPA involves repeating the SH.HS matmul over <span class="math inline">\(N\)</span> heads to get similarity scores, and then repeating the SS.SH matmul over the <span class="math inline">\(N\)</span> heads to get attention-weighted values.</p>
+<span class="math display">\[\begin{array}{cc}
+\textrm{operation} &amp; \textrm{FLOPs} \\
+\hline \\[3pt]
+
+Q[S,N,H] \cdot K[S,N,H]
+    &amp; 2{S^2}NH \\[3pt]
+
+A[S,S,N] \cdot V[S,N,H]
+    &amp; 2S^2NH \\[3pt]
+
+\hline \\
+&amp; \approx 4S^2NH
+\end{array}\]</span>
+</section>
+</section>
+<section id="other-operations" class="level3">
+<h3 class="anchored" data-anchor-id="other-operations">Other Operations</h3>
+<p>It remains for us to consider the embedding and unembedding layers.</p>
+<p>Conceptually, embedding a token is equivalent to multiplying its <span class="math inline">\(V\)</span>-dimensional one-hot representation by a <span class="math inline">\([V, D]\)</span> embedding matrix. In practice, this is implemented by a lookup of the appropriate row of the embedding matrix. This involves only memory operation and no arithmetic.</p>
+<p>The unembedding layer, coming after the last Transformer layer, does involve significant number of FLOPs:</p>
+<span class="math display">\[\begin{array}{ccc}
+\textrm{operation} &amp; \textrm{FLOPs} &amp; \textrm{params} \\
+\hline \\
+A[S,D] \cdot W_{\mathrm{unembed}}[D,V]
+    &amp; 2SDV &amp; DV
+\end{array}\]</span>
+</section>
+<section id="sdpa-vs-matmul-flops" class="level3">
+<h3 class="anchored" data-anchor-id="sdpa-vs-matmul-flops">SDPA vs Matmul FLOPs</h3>
+<p>For our analysis, we are going to assume <span class="math inline">\(NH = D\)</span> and <span class="math inline">\(F = 4D\)</span> - this is very commonly the case in Transformers. Summing up SDPA FLOPs over all layers, we get:</p>
+<p><span class="math display">\[\begin{equation}
+\text{Total SDPA FLOPs} = 4S^2NHL = 4S^2DL
+\end{equation}\]</span></p>
+<p>Summing up the matmul FLOPs over all layers (not including unembedding layer):</p>
+<p><span class="math display">\[\begin{equation}
+\text{Total matmul FLOPs} = (4SDF + 8SDNH)L = 24SD^2L
+\end{equation}\]</span></p>
+<p>The ratio of SDPA FLOPs to all matmul FLOPs (including attention projections) is:</p>
+<p><span class="math display">\[\begin{equation}
+\frac{\text{SDPA FLOPs}}{\text{matmul FLOPs}} = \frac{4S^2D}{24SD^2} = \frac{S}{6D}
+\end{equation}\]</span></p>
+<p>If we were to plot this ratio for typical values of D, we obtain the following</p>
+<div class="intro-figure">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="flops_ratio.png" class="img-fluid figure-img" style="width:70.0%"></p>
+<figcaption><strong>Figure</strong>: Ratio of SDPA FLOPs to matmul FLOPs varying sequence length for different embedding dimensions.</figcaption>
+</figure>
+</div>
+</div>
+<p>From the plot we observe that the SDPA FLOPs dominate the matmul FLOPs at longer context lengths. The crossover happens at sequence lengths ~12k, ~24k, and ~49k for embedding dimensions 2k, 4k, and 8k respectively. Larger models have bigger embedding dimension.</p>
+</section>
+<section id="general-thumb-rule-for-transformer-inference-flops" class="level3">
+<h3 class="anchored" data-anchor-id="general-thumb-rule-for-transformer-inference-flops">General thumb rule for Transformer Inference FLOPs</h3>
+<p>The total number of parameters is approximately <span class="math display">\[\begin{equation}
+\text{Parameter count} = (2DF + 4DNH)L = 12D^2L
+\end{equation}\]</span></p>
+<p>For the short-context regime (<span class="math inline">\(S &lt;&lt; 6D\)</span>), the quadratic SDPA FLOPs are small relative to matmul FLOPs. Ignoring low-order operations like layer norm, ReLU, softmax, we arrive at the useful thumb rule: <span class="math display">\[\begin{equation}
+\text{Forward-pass FLOPs} = 2 \times \text{num tokens } \times \text{ parameter count}
+\end{equation}\]</span> (Unembedding matmul with <span class="math inline">\(2SDV\)</span> FLOPs and <span class="math inline">\(DV\)</span> parameters also follows the same thumb rule.)</p>
+<p>In effect, each weight parameter is participating in one multiply and one add (that is, one fused-multiply-add) per token.</p>
+</section>
 </section>
 
-</main>
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>We consider vanilla MHA, not GQA; we also assume vanilla FFN, rather than gating einsum.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main>
 <!-- /main column -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
@@ -531,5 +689,5 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 
 
 
-<script src="index_files/libs/quarto-html/zenscroll-min.js"></script>
+<script src="transformer_flops_files/libs/quarto-html/zenscroll-min.js"></script>
 </body></html>
