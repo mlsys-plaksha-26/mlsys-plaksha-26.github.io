@@ -78,13 +78,13 @@ window.Quarto = {
    
   <ul>
   <li><a href="#preliminaries" id="toc-preliminaries" class="nav-link active" data-scroll-target="#preliminaries">Preliminaries</a></li>
-  <li><a href="#flops-and-params-calculations" id="toc-flops-and-params-calculations" class="nav-link" data-scroll-target="#flops-and-params-calculations">FLOPs and Params Calculations</a>
+  <li><a href="#flops-and-parameter-counts" id="toc-flops-and-parameter-counts" class="nav-link" data-scroll-target="#flops-and-parameter-counts">FLOPs and Parameter Counts</a>
   <ul class="collapse">
   <li><a href="#mlps" id="toc-mlps" class="nav-link" data-scroll-target="#mlps">MLPs</a></li>
   <li><a href="#attention" id="toc-attention" class="nav-link" data-scroll-target="#attention">Attention</a></li>
   <li><a href="#other-operations" id="toc-other-operations" class="nav-link" data-scroll-target="#other-operations">Other Operations</a></li>
   <li><a href="#sdpa-vs-matmul-flops" id="toc-sdpa-vs-matmul-flops" class="nav-link" data-scroll-target="#sdpa-vs-matmul-flops">SDPA vs Matmul FLOPs</a></li>
-  <li><a href="#general-thumb-rule-for-transformer-inference-flops" id="toc-general-thumb-rule-for-transformer-inference-flops" class="nav-link" data-scroll-target="#general-thumb-rule-for-transformer-inference-flops">General thumb rule for Transformer Inference FLOPs</a></li>
+  <li><a href="#general-rule-of-thumb-for-transformer-inference-flops" id="toc-general-rule-of-thumb-for-transformer-inference-flops" class="nav-link" data-scroll-target="#general-rule-of-thumb-for-transformer-inference-flops">General Rule of Thumb for Transformer Inference FLOPs</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -123,13 +123,13 @@ window.Quarto = {
 </header>
 
 
-<p>In this writeup, we’ll calculate the number of FLOPs performed during a Transformer forward pass over a single sequence of <span class="math inline">\(S\)</span> tokens. Our treatment here closely follows the Transformer Accounting chapter of the Scaling book, but is adapted to forward-pass and considers a simpler architecture. <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> In case you need to brush up on Transformer details, please refer <a href="https://jalammar.github.io/illustrated-transformer/">this blog post</a> and <a href="https://web.stanford.edu/~jurafsky/slp3/7.pdf">this book chapter</a>.</p>
+<p>In this writeup, we’ll calculate the number of FLOPs performed during a Transformer forward pass over a single sequence of <span class="math inline">\(S\)</span> tokens. Our treatment here closely follows the <a href="https://jax-ml.github.io/scaling-book/transformers/">Transformer Accounting</a> chapter of the Scaling book, but focuses on the forward pass and uses a simpler architecture. <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> In case you need to brush up on Transformer details, please refer to <a href="https://jalammar.github.io/illustrated-transformer/">this blog post</a> and <a href="https://web.stanford.edu/~jurafsky/slp3/7.pdf">this book chapter</a>.</p>
 <section id="preliminaries" class="level2">
 <h2 class="anchored" data-anchor-id="preliminaries">Preliminaries</h2>
 <ol type="1">
-<li><p>Dot product <span class="math inline">\(x[P].y[P]\)</span> needs <span class="math inline">\(P\)</span> multiplies and <span class="math inline">\(P - 1\)</span> additions; hence we do <span class="math inline">\(2P - 1\)</span> FLOPs in total. We can approximate this to <span class="math inline">\(2P\)</span> FLOPs when <span class="math inline">\(P\)</span> is large; henceforth, we’ll assume this.</p></li>
+<li><p>Dot product <span class="math inline">\(x[P].y[P]\)</span> needs <span class="math inline">\(P\)</span> multiplies and <span class="math inline">\(P - 1\)</span> additions; hence we do <span class="math inline">\(2P - 1\)</span> FLOPs in total. We can approximate this as <span class="math inline">\(2P\)</span> FLOPs when <span class="math inline">\(P\)</span> is large; henceforth, we’ll assume this.</p></li>
 <li><p>A matrix-vector product <span class="math inline">\(A[N, P]x[P]\)</span> involves doing <span class="math inline">\(N\)</span> dot products - one per row of A. In total, <span class="math inline">\(2NP\)</span> FLOPs are needed.</p></li>
-<li><p>A matrix-matrix product <span class="math inline">\(A[N, P]B[P, M]\)</span> gives an output of shape <span class="math inline">\([N, M]\)</span>. Element <span class="math inline">\((i, j)\)</span> is obtained by doing a dot product between <span class="math inline">\(i\)</span>-th row of <span class="math inline">\(A\)</span> and <span class="math inline">\(j\)</span>-th column of <span class="math inline">\(B\)</span>. In total, we do <span class="math inline">\(2NPM\)</span> FLOPs. We say that <span class="math inline">\(P\)</span> is the <em>contracting</em> dimension, since we sum up over this dimension when doing the dot product. This gives us a useful thumb-rule</p></li>
+<li><p>A matrix-matrix product <span class="math inline">\(A[N, P]B[P, M]\)</span> gives an output of shape <span class="math inline">\([N, M]\)</span>. Element <span class="math inline">\((i, j)\)</span> is obtained by doing a dot product between the <span class="math inline">\(i\)</span>-th row of <span class="math inline">\(A\)</span> and the <span class="math inline">\(j\)</span>-th column of <span class="math inline">\(B\)</span>. In total, we do <span class="math inline">\(2NPM\)</span> FLOPs. We say that <span class="math inline">\(P\)</span> is the <em>contracting</em> dimension, since we sum up over this dimension when doing the dot product. This gives us a useful rule of thumb:</p></li>
 </ol>
 <p><span class="math display">\[\begin{equation}
 [N, P] \times [P, M] \to [N, M]: 2NPM \text{ FLOPs}.
@@ -137,21 +137,21 @@ window.Quarto = {
 <ol start="4" type="1">
 <li>Sometimes we repeat an operation independently for every element of some dimension. For example, consider multiplying two tensors <span class="math inline">\(A[K, N, P]\)</span> and <span class="math inline">\(B[K, P, M]\)</span> in the following manner <span class="math display">\[\begin{equation}
 out(k, n, m) = \sum_{p} A[k, n, p]B[k, p, m].
-\end{equation}\]</span> In this case, the total FLOPs is <span class="math inline">\(K\)</span> times <span class="math inline">\(2NPM\)</span>, that is, <span class="math inline">\(2KNPM\)</span> FLOPs.</li>
+\end{equation}\]</span> In this case, the total FLOP count is <span class="math inline">\(K\)</span> times <span class="math inline">\(2NPM\)</span>, that is, <span class="math inline">\(2KNPM\)</span> FLOPs.</li>
 </ol>
 <div class="intro-figure">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="transformer_arch.png" class="img-fluid figure-img" style="width:99.0%"></p>
-<figcaption><strong>Figure</strong>: One Transformer layer with flow from top to bottom. For each operation, the input shape in on top-left, parameter shape on top-right and output shape at bottom. Adapted from the <a href="https://jax-ml.github.io/scaling-book/transformers/#transformer-accounting">Scaling book</a>.</figcaption>
+<figcaption><strong>Figure</strong>: One Transformer layer, with data flowing from top to bottom. For each operation, the input shape is shown at the top-left, parameter shape at the top-right and the output shape at the bottom. Adapted from the <a href="https://jax-ml.github.io/scaling-book/transformers/#transformer-accounting">Scaling book</a>.</figcaption>
 </figure>
 </div>
 </div>
 </section>
-<section id="flops-and-params-calculations" class="level2">
-<h2 class="anchored" data-anchor-id="flops-and-params-calculations">FLOPs and Params Calculations</h2>
-<p>We’ll calculate FLOPs for forward-pass on one layer on Transformer and multiply that value by <span class="math inline">\(L\)</span>, the number of layers in the model. We also need to account for the embedding and unembedding operations at the very start and end respectively.</p>
-<p>As a first approximation, we can ignore the FLOPs contribution of ReLU, layer norm, and softmax. These involve relatively few operations per element, so their FLOPs contribution is much smaller than those of tensor multiplications.</p>
+<section id="flops-and-parameter-counts" class="level2">
+<h2 class="anchored" data-anchor-id="flops-and-parameter-counts">FLOPs and Parameter Counts</h2>
+<p>We’ll calculate FLOPs for a forward pass through one Transformer layer and multiply that value by <span class="math inline">\(L\)</span>, the number of layers in the model. We also need to account for the embedding and unembedding operations at the very start and end respectively.</p>
+<p>As a first approximation, we can the contribution of ReLU, layer normalization, and softmax to the total FLOPs count. These operations require relatively few FLOPs per element, so their contribution is much smaller than that of tensor multiplications.</p>
 <section id="mlps" class="level3">
 <h3 class="anchored" data-anchor-id="mlps">MLPs</h3>
 <span class="math display">\[\begin{array}{ccc}
@@ -213,8 +213,8 @@ A[S,S,N] \cdot V[S,N,H]
 <section id="other-operations" class="level3">
 <h3 class="anchored" data-anchor-id="other-operations">Other Operations</h3>
 <p>It remains for us to consider the embedding and unembedding layers.</p>
-<p>Conceptually, embedding a token is equivalent to multiplying its <span class="math inline">\(V\)</span>-dimensional one-hot representation by a <span class="math inline">\([V, D]\)</span> embedding matrix. In practice, this is implemented by a lookup of the appropriate row of the embedding matrix. This involves only memory operation and no arithmetic.</p>
-<p>The unembedding layer, coming after the last Transformer layer, does involve significant number of FLOPs:</p>
+<p>Conceptually, embedding a token is equivalent to multiplying its <span class="math inline">\(V\)</span>-dimensional one-hot representation by a <span class="math inline">\([V, D]\)</span> embedding matrix. In practice, this is implemented as a lookup of the appropriate row of the embedding matrix. This involves only a memory operation and no arithmetic.</p>
+<p>The unembedding layer, coming after the last Transformer layer, does involve a significant number of FLOPs:</p>
 <span class="math display">\[\begin{array}{ccc}
 \textrm{operation} &amp; \textrm{FLOPs} &amp; \textrm{params} \\
 \hline \\
@@ -236,26 +236,26 @@ A[S,D] \cdot W_{\mathrm{unembed}}[D,V]
 <p><span class="math display">\[\begin{equation}
 \frac{\text{SDPA FLOPs}}{\text{matmul FLOPs}} = \frac{4S^2D}{24SD^2} = \frac{S}{6D}
 \end{equation}\]</span></p>
-<p>If we were to plot this ratio for typical values of D, we obtain the following</p>
+<p>Plotting this ratio for typical values of D gives</p>
 <div class="intro-figure">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="flops_ratio.png" class="img-fluid figure-img" style="width:70.0%"></p>
-<figcaption><strong>Figure</strong>: Ratio of SDPA FLOPs to matmul FLOPs varying sequence length for different embedding dimensions.</figcaption>
+<figcaption><strong>Figure</strong>: Ratio of SDPA FLOPs to matmul FLOPs as a function of sequence length for different embedding dimensions.</figcaption>
 </figure>
 </div>
 </div>
-<p>From the plot we observe that the SDPA FLOPs dominate the matmul FLOPs at longer context lengths. The crossover happens at sequence lengths ~12k, ~24k, and ~49k for embedding dimensions 2k, 4k, and 8k respectively. Larger models have bigger embedding dimension.</p>
+<p>From the plot we observe that the SDPA FLOPs dominate the matmul FLOPs at longer context lengths. The crossover happens at sequence lengths ~12k, ~24k, and ~49k for embedding dimensions 2k, 4k, and 8k respectively. Larger models tend to have larger embedding dimensions.</p>
 </section>
-<section id="general-thumb-rule-for-transformer-inference-flops" class="level3">
-<h3 class="anchored" data-anchor-id="general-thumb-rule-for-transformer-inference-flops">General thumb rule for Transformer Inference FLOPs</h3>
+<section id="general-rule-of-thumb-for-transformer-inference-flops" class="level3">
+<h3 class="anchored" data-anchor-id="general-rule-of-thumb-for-transformer-inference-flops">General Rule of Thumb for Transformer Inference FLOPs</h3>
 <p>The total number of parameters is approximately <span class="math display">\[\begin{equation}
 \text{Parameter count} = (2DF + 4DNH)L = 12D^2L
 \end{equation}\]</span></p>
-<p>For the short-context regime (<span class="math inline">\(S &lt;&lt; 6D\)</span>), the quadratic SDPA FLOPs are small relative to matmul FLOPs. Ignoring low-order operations like layer norm, ReLU, softmax, we arrive at the useful thumb rule: <span class="math display">\[\begin{equation}
+<p>For the short-context regime (<span class="math inline">\(S &lt;&lt; 6D\)</span>), the quadratic SDPA FLOPs are small relative to matmul FLOPs. Ignoring lower-order operations like layer norm, ReLU, softmax, we arrive at the useful thumb rule: <span class="math display">\[\begin{equation}
 \text{Forward-pass FLOPs} = 2 \times \text{num tokens } \times \text{ parameter count}
 \end{equation}\]</span> (Unembedding matmul with <span class="math inline">\(2SDV\)</span> FLOPs and <span class="math inline">\(DV\)</span> parameters also follows the same thumb rule.)</p>
-<p>In effect, each weight parameter is participating in one multiply and one add (that is, one fused-multiply-add) per token.</p>
+<p>In effect, each weight parameter participates in one multiply and one add (that is, one fused-multiply-add) per token.</p>
 </section>
 </section>
 

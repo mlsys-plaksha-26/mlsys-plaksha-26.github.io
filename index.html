@@ -87,16 +87,17 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>This page contains materials used as part of the Machine Learning Systems taught at Plaksha University in 2026. For last year’s offering, please see the <a href="https://ai4103-mlsys.github.io/">2025 course page</a>.</p>
+<p>This page contains materials used as part of the Machine Learning Systems course taught at Plaksha University in 2026. For last year’s offering, please see the <a href="https://ai4103-mlsys.github.io/">2025 course page</a>.</p>
 <section id="description" class="level3">
 <h3 class="anchored" data-anchor-id="description">Description</h3>
-<p>LLMs place heavy demands on the systems that serve them: a single forward pass moves gigabytes of weights and cache data through the memory hierarchy. The deployment costs depend heavily on the throughput and latency one can extract from the GPUs. This course studies how modern LLMs are made to run efficiently, working from the hardware upward. This course studies how modern LLMs are made to run efficiently, working from the hardware upward.</p>
-<p>We begin with an analytical framework for reasoning about performance: arithmetic intensity, the roofline model, and careful accounting of FLOPs and bytes a transformer layer consumes. We then treat the GPU as a machine, discussing its memory hierarchy and execution model. We also study the CUDA programming model used to write high-performance kernels, with matrix multiplication as the running example. The second half of the course focuses on computational characteristics of LLM inference (prefill, decode, KV-cache) and the system techniques that make serving practical at scale.</p>
-<p>The focus of this course is on inference of transformer-based LLMs running on Nvidia GPUs.</p>
-<p><strong>Textbook</strong>: The following books can be helpful for parts of the course:</p>
+<p>LLMs place heavy demands on the systems that serve them: a single forward pass moves gigabytes of weights and cache data through the memory hierarchy. The deployment costs depend heavily on the throughput and latency one can extract from the GPUs. This course studies how modern LLMs are made to run efficiently, working from the hardware upward.</p>
+<p>We begin with an analytical framework for reasoning about performance: arithmetic intensity, the roofline model, and careful accounting of FLOPs performed and bytes moved by a transformer layer. We then treat the GPU as a machine, discussing its memory hierarchy and execution model. We also study the CUDA programming model used to write high-performance kernels, with matrix multiplication as the running example. The second half of the course focuses on computational characteristics of LLM inference (prefill, decode, KV-cache) and the system techniques that make serving practical at scale.</p>
+<p>This course focuses on inference for transformer-based LLMs on NVIDIA GPUs.</p>
+<p><strong>References</strong>: The following books can be helpful for parts of the course:</p>
 <p><a href="https://jax-ml.github.io/scaling-book/">How to Scale Your Model</a> by Austin, J., Douglas, S., Frostig, R., Levskaya, A., Chen, C., Vikram, S., Lebron, F., Choy, P., Ramasesh, V., Webson, A., &amp; Pope, R. (2025).</p>
 <p><em>Programming Massively Parallel Processors: A Hands-on Approach</em> by Hwu, W.-m. W., Kirk, D. B., &amp; El Hajj, I. 4th edition (2022)</p>
 <p><strong>Credits</strong>: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course.</p>
+<p><strong>Feedback</strong>: If you notice any errors or have suggestions for improving the notes, please email me at <a href="mailto:pankaj.pansari@plaksha.edu.in">pankaj.pansari@plaksha.edu.in</a>.</p>
 <hr style="border: 3px solid black;">
 </section>
 <section id="lectures" class="level3">

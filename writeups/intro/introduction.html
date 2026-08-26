@@ -94,7 +94,7 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>This course is a quantitative, systems-oriented deep dive into LLM inference. <em>Inference</em> is the process of giving a ML model an input and obtaining an output.</p>
+<p>This course is a quantitative, systems-oriented deep dive into LLM inference. <em>Inference</em> is the process of giving an ML model an input and obtaining an output.</p>
 <div class="intro-figure">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -106,17 +106,17 @@ ul.task-list li input[type="checkbox"] {
 <p>We use the term <em>serving</em> when talking about inference for several concurrent users. This also refers to a software stack that accepts user requests, schedules them, and executes inference.</p>
 <section id="why-focus-on-llm-inference" class="level2">
 <h2 class="anchored" data-anchor-id="why-focus-on-llm-inference">Why Focus on LLM Inference?</h2>
-<p>There are two reasons motivating our study of the LLM process in depth:</p>
+<p>There are two reasons for studying LLM inference in depth:</p>
 <section id="scaling-of-usage" class="level3">
 <h3 class="anchored" data-anchor-id="scaling-of-usage">Scaling of usage</h3>
-<p>With widespread adoption of AI, the LLM inference has become a significant computational workload. For example, Google has <a href="https://blog.google/innovation-and-ai/sundar-pichai-io-2026/">reported</a> that its monthly inference workload grew from 9.7T tokens in May 2024 to ~480T tokens in May 2025 to ~3.2Q (quadrillion) tokens in May 2026.</p>
+<p>With widespread adoption of AI, LLM inference has become a significant computational workload. For example, Google has <a href="https://blog.google/innovation-and-ai/sundar-pichai-io-2026/">reported</a> that its monthly inference workload grew from 9.7T tokens in May 2024 to ~480T tokens in May 2025 to ~3.2Q (quadrillion) tokens in May 2026.</p>
 <p>There are two factors driving this rapid increase in inference compute:</p>
 <ol type="1">
-<li>Number of users - growing as more people make increasing use of AI models.</li>
+<li>Number of users - more people are using AI models, and using them more frequently.</li>
 <li>Inference scaling - a task no longer necessarily consists of one prompt followed by one response.
 <ol type="a">
 <li>Longer - reasoning models generate a lot of reasoning tokens before they answer</li>
-<li>Wider - on difficult problems, test-time scaling is used; for example, sampling many candidate answers and picking the best one(s) as decided by a verifier</li>
+<li>Wider - on difficult problems, test-time scaling is used; for example, sampling multiple candidate answers and using a verifier to select the best.</li>
 <li>Deeper - agentic systems solve a complex task by repeatedly acting, observing, and adapting. Each step involves making LLM inference calls.</li>
 </ol></li>
 </ol>
@@ -125,32 +125,32 @@ ul.task-list li input[type="checkbox"] {
 <h3 class="anchored" data-anchor-id="computational-challenges">Computational challenges</h3>
 <p>LLM inference poses special computational challenges that are distinct from training.</p>
 <ol type="1">
-<li><p>The autoregressive nature of transformers means LLMs generate response token-by-token. This makes it harder to parallelize inference as compared to training. <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p></li>
-<li><p>As we discuss in a later lecture, inference comprises two phases - prefill (processing prompt and generation of first token) and decode (generation of subsequent tokens). The two phases have very different computational characteristics.</p></li>
+<li><p>The autoregressive nature of transformers means LLMs generate response token-by-token. This makes it harder to parallelize inference than training. <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p></li>
+<li><p>As we discuss in a later lecture, inference comprises two phases - prefill (processing the prompt and generating the first token) and decode (generation of subsequent tokens). The two phases have very different computational characteristics.</p></li>
 <li><p>Earlier interactive applications (simple chatbots) mainly needed to generate tokens at human reading speed. With reasoning and agentic models, generated tokens can lie on the critical path of a larger computation, making the token-generation latency requirements much tighter.</p></li>
-<li><p>Our interactions have become long-context. Think about asking the LLM about a large codebase. Such long context place a lot of demand on constrained GPU memory in terms of both capacity and bandwidth.</p></li>
-<li><p>Capable models today have parameters numbering hundreds of billions or even a few trillions. Such large models need to be sharded over multiple GPUs - this introduces additional communication costs that make it even harder to produce tokens at low latency.</p></li>
+<li><p>Our interactions have become long-context. Think about asking the LLM about a large codebase. Such long contexts place heavy demands on limited GPU memory, both in capacity and bandwidth.</p></li>
+<li><p>Capable models today can have hundreds of billions or even trillions of parameters. Such large models need to be sharded across multiple GPUs, introducing communication costs that make low-latency generation harder.</p></li>
 </ol>
 </section>
 </section>
 <section id="a-puzzle" class="level2">
 <h2 class="anchored" data-anchor-id="a-puzzle">A Puzzle</h2>
-<p>Let us give a prompt of 128 tokens to a Qwen3-8B model running on A100 GPU and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 34.9ms per token on average. The token generation throughput is 28.7 tokens/s. What is the simplest estimate for latency we can make?</p>
+<p>Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A100 GPU and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 34.9 ms per token on average. The token generation throughput is 28.7 tokens/s. What is the simplest latency estimate we can make?</p>
 <p>The 8.2B parameter Qwen3-8B model does approximately 2 * (num of parameters) = 2 * (8.2 * 1e9) FLOPs = 16.4 GFLOPs per generated token. (We’ll derive this thumb rule later).</p>
-<p>A100 advertises peak compute throughput as 312 TFLOPs/s (dense matrix multiplication, FP16 tensor cores). 16.4 GFLOPs/312 TFLOPs/s gives 0.05ms. Hence, we observe discrepancy by a factor of ~700x.</p>
+<p>The <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf">A100</a> has a peak compute throughput as 312 TFLOPs/s (dense matrix multiplication, BF16/FP16 Tensor Cores). 16.4 GFLOPs / 312 TFLOPs/s gives 0.05 ms. Hence, we observe a discrepancy by a factor of ~700x.</p>
 <p>Clearly, peak FLOPs alone is the wrong model for this workload. Why? One of our objectives is to learn enough systems concepts to reason about discrepancies such as this.</p>
 </section>
 <section id="efficiency-is-key" class="level2">
 <h2 class="anchored" data-anchor-id="efficiency-is-key">Efficiency is Key</h2>
-<p>ML workloads have to make use of hardware accelerators such as GPUs; these are expensive devices and have significant power demands. How efficiently our ML workload runs on the hardware has a direct bearing on cost and power consumption, and this becomes more critical when training or deploying models at scale. ML Systems gives us the concepts and tools with which to investigate computational bottlenecks and address them.</p>
+<p>GPUs are expensive and power-hungry, so hardware efficiency directly affects the cost and power consumption of ML workloads. This becomes more critical when training or deploying models at scale. ML Systems gives us the concepts and tools with which to investigate computational bottlenecks and address them.</p>
 </section>
 <section id="what-is-ml-systems" class="level2">
 <h2 class="anchored" data-anchor-id="what-is-ml-systems">What is ML Systems?</h2>
-<p>When we think about building an ML application, such as a chat assistant, the mental model we have is:</p>
+<p>A common mental model for building an ML application is:</p>
 <ol type="a">
 <li>decide on the model architecture and source the training data</li>
-<li>write training code in PyTorch that underneath makes use of optimized GPU libraries</li>
-<li>run the training process on the hardware - a computer with ML accelerator such as GPU.</li>
+<li>write training code in PyTorch, which in turn uses optimized GPU libraries</li>
+<li>run the training process on the hardware - a computer with an ML accelerator such as a GPU.</li>
 </ol>
 <div class="intro-figure">
 <div class="quarto-figure quarto-figure-center">
@@ -160,7 +160,7 @@ ul.task-list li input[type="checkbox"] {
 </figure>
 </div>
 </div>
-<p>This model is adequate for small, working prototypes. But when it comes to developing applications that are trained and deployed at scale (ChatGPT, Claude, and others), and where cost and satisfying customer requirements are crucial, the picture becomes more complicated:</p>
+<p>This model is adequate for small, working prototypes. At scale however, where both cost and application requirements matter, the picture becomes more complicated:</p>
 <div class="intro-figure">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -173,26 +173,26 @@ ul.task-list li input[type="checkbox"] {
 <li>the application requirements now specify metrics like LLM serving throughput and token generation latency</li>
 <li>the design of the model itself considers how it can make efficient use of the hardware
 <ul>
-<li>eg., by having more parallelism</li>
+<li>e.g., by having more parallelism.</li>
 </ul></li>
 <li>the software stack is also designed with the specific hardware in mind
 <ul>
-<li>eg., matmul kernels in cuBLAS library have different implementations for A100 vs H100 GPU</li>
-<li>eg., FlashAttention-3 is specific to Hopper GPU architectures and FlashAttention-4 to Blackwell architectures.</li>
+<li>e.g., cuBLAS provides different matmul implementations for A100 and H100 GPUs.</li>
+<li>e.g., FlashAttention-3 is specific to Hopper GPU architectures and FlashAttention-4 to Blackwell architectures.</li>
 </ul></li>
 </ol>
-<p>For our purposes, ML Systems is the study of how model and workload, software stack, and hardware interact to meet model serving requirements such as throughput, latency, and cost.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<p>For our purposes, ML Systems is the study of how models and workloads, software stacks, and hardware interact to meet model serving requirements such as throughput, latency, and cost.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 </section>
 <section id="why-study-ml-systems" class="level2">
 <h2 class="anchored" data-anchor-id="why-study-ml-systems">Why Study ML Systems?</h2>
 <ol type="1">
-<li><p>Systems constraints decide what is feasible in terms of model inference:</p>
+<li><p>Systems constraints determine what model architectures and workloads are practical:</p>
 <ul>
-<li>FlashAttention: by avoiding materializing the quadratic attention matrix, it became more feasible for LLMs to handle long contexts.</li>
-<li>Mixture-of-expert (MoE) models: work on parallelism, routing, and communication make it feasible to</li>
-<li>Continuous batching + KV paging: systems concepts that permit higher LLM serving concurrency and efficiency</li>
+<li>FlashAttention: makes long-context inference practical by reducing memory traffic during attention.</li>
+<li>Mixture-of-expert (MoE) models: requires efficient routing, communication, and expert-parallel execution to realize its computational advantage.</li>
+<li>Continuous batching + KV paging: makes high-concurrency serving possible.</li>
 </ul></li>
-<li><p>One can take a principled approach to make performance estimates, measure quantities experimentally, probe deeper using profilers and come to a hypothesis about possible software improvements.</p></li>
+<li><p>One can take a principled approach to make performance estimates, measure quantities experimentally, locate bottlenecks using profilers and form hypotheses about possible improvements.</p></li>
 <li><p>ML Systems concepts are more durable and apply even when the AI models and hardware they run on are evolving rapidly. <a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p></li>
 </ol>
 <p>Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 34.9ms per token actually go, and what can be done to reduce it.</p>
@@ -203,7 +203,7 @@ ul.task-list li input[type="checkbox"] {
 
 <ol>
 <li id="fn1"><p>Actually, the lack of parallelism is for the decode inference steps. The generation of first token (prefill) usually has adequate parallelism<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>ML Systems is actually a much broader field concerned with the systems required to build and run machine learning models applications, including aspects like training infrastructure, fault tolerance, deployment, and monitoring. Here we study it through one particularly important setting of efficient LLM inference on GPUs. To see the broader lay of the land, one can glace through the recent proceedings of some good ML Systems conferences such as <a href="https://proceedings.mlsys.org/paper_files/paper/2026">MLSys</a> and <a href="https://www.usenix.org/conference/osdi26/technical-sessions">OSDI</a>.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>ML Systems is actually a much broader field concerned with the systems required to build and run machine learning models and applications, including aspects like training infrastructure, fault tolerance, deployment, and monitoring. Here we study it through one particularly important setting of efficient LLM inference on GPUs. To see the broader lay of the land, browse the recent proceedings of conferences such as <a href="https://proceedings.mlsys.org/paper_files/paper/2026">MLSys</a> and <a href="https://www.usenix.org/conference/osdi26/technical-sessions">OSDI</a>.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn3"><p>Eric Auld expresses this point neatly in his <a href="https://ericauld.github.io/2025/03/04/math-to-gpu.html">post</a><a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main>
