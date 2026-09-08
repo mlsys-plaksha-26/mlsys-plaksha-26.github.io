@@ -33,7 +33,7 @@ In this case, the total FLOP count is $K$ times $2NPM$, that is, $2KNPM$ FLOPs.
 
 We'll calculate FLOPs for a forward pass through one Transformer layer and multiply that value by $L$, the number of layers in the model. We also need to account for the embedding and unembedding operations at the very start and end respectively.
 
-As a first approximation, we can the contribution of ReLU, layer normalization, and softmax to the total FLOPs count. These operations require relatively few FLOPs per element, so their contribution is much smaller than that of tensor multiplications.
+As a first approximation, we can the ignore the contribution of ReLU, layer normalization, and softmax to the total FLOPs count. These operations require relatively few FLOPs per element, so their contribution is much smaller than that of tensor multiplications.
 
 ### MLPs
 \begin{array}{ccc}
@@ -74,7 +74,7 @@ A[S,N,H] \cdot W_O[N,H,D]
 \end{array}
 
 #### Scaled Dot product Attention (SDPA)
-SDPA involves repeating the SH.HS matmul over $N$ heads to get similarity scores, and then repeating the SS.SH matmul over the $N$ heads to get attention-weighted values. In autoregressive inference, a token attends only to the tokens coming before it in the sequence. The attention matrix is lower-triangular and efficient attention kernels, such as FlashAttention, work with only ${}^S C_2$ query-key pairs.
+SDPA involves repeating the SH.HS matmul over $N$ heads to get similarity scores, and then repeating the SS.SH matmul over the $N$ heads to get attention-weighted values. In autoregressive inference, a token attends only to the tokens coming before it in the sequence. The attention matrix is lower-triangular and efficient attention kernels, such as FlashAttention, approximately halve the number of query-key pairs.
 
 \begin{array}{cc}
 \textrm{operation} & \textrm{FLOPs} \\
@@ -104,57 +104,57 @@ A[S,D] \cdot W_{\mathrm{unembed}}[D,V]
     & 2SDV & DV
 \end{array}
 
-In autoregressive inference, logit is computed for the last token in sequence only. Hence, the FLOPs count is $2DV$ instead of $2SDV$.
+Next token generation requires logits only for the last token in the sequence. In this case, the FLOPs count is $2DV$ instead of $2SDV$. Whether the forward pass computes all logits or only last token's logits depends on the implementation.
 
-### SDPA vs Matmul FLOPs
+### Attention FLOPs vs Linear-layer FLOPs
 
-For our analysis, we are going to assume $NH = D$ and $F = 4D$ - this is very commonly the case in Transformers. Summing up SDPA FLOPs over all layers, we get:
+For our analysis, we are going to assume $NH = D$ and $F = 4D$ - this is very commonly the case in Transformers. Summing up attention FLOPs over all layers, we get:
 
 \begin{equation}
-\text{Total SDPA FLOPs} = 2S^2NHL = 2S^2DL
+\text{Total Attention FLOPs} = 2S^2NHL = 2S^2DL
 \end{equation}
 
-Summing up the matmul FLOPs over all layers (not including unembedding layer):
+Summing up the linear projection FLOPs over all layers (not including unembedding layer):
 
 \begin{equation}
-\text{Total matmul FLOPs} = (4SDF + 8SDNH)L = 24SD^2L
+\text{Total linear projection FLOPs} = (4SDF + 8SDNH)L = 24SD^2L
 \end{equation}
 
-The ratio of SDPA FLOPs to all matmul FLOPs (including attention projections) is:
+The ratio of attention FLOPs to all linear-layer FLOPs (including attention projections) is:
 
 \begin{equation}
-\frac{\text{SDPA FLOPs}}{\text{matmul FLOPs}} = \frac{2S^2D}{24SD^2} = \frac{S}{12D}
+\frac{\text{Attention FLOPs}}{\text{Linear projection FLOPs}} = \frac{2S^2D}{24SD^2} = \frac{S}{12D}
 \end{equation}
 
 Plotting this ratio for typical values of D gives
 
 ::: {.intro-figure}
-![**Figure**: Ratio of SDPA FLOPs to matmul FLOPs as a function of sequence length for different embedding dimensions.](flops_ratio.png){width=70%}
+![**Figure**: Ratio of attention FLOPs to linear projection FLOPs as a function of sequence length for different embedding dimensions.](flops_ratio.png){width=70%}
 :::
 
-From the plot we observe that the SDPA FLOPs dominate the matmul FLOPs at longer context lengths. The crossover happens at sequence lengths ~24k, ~49k, and ~98k for embedding dimensions 2k, 4k, and 8k respectively. Larger models tend to have larger embedding dimensions.
+From the plot we observe that the attention FLOPs dominate the linear projection FLOPs at longer context lengths. The crossover happens at sequence lengths ~24k, ~49k, and ~98k for embedding dimensions 2k, 4k, and 8k respectively. Larger models tend to have larger embedding dimensions.
 
 ### General Rule of Thumb for Transformer Inference FLOPs
 
-The total number of parameters involved in matmul (that is, excluding the embedding matrix) is approximately
+The total number of parameters involved in linear projections (excluding the embedding and unembedding matrices) is approximately
 \begin{equation}
-P_{matmul} = (2DF + 4DNH)L = 12D^2L
+P_{linear} = (2DF + 4DNH)L = 12D^2L
 \end{equation}
 
-For the short-context regime ($S << 6D$), the quadratic SDPA FLOPs are small relative to matmul FLOPs. Ignoring lower-order operations like layer norm, ReLU, softmax, we arrive at the useful thumb rule:
+For the short-context regime ($S << 12D$), the quadratic attention FLOPs are small relative to linear projection FLOPs. Ignoring lower-order operations like layer norm, ReLU, softmax, we arrive at the useful thumb rule:
 \begin{equation}
-\text{Forward-pass FLOPs} = 2 \times \text{num tokens } \times P_{matmul}
+\text{Forward-pass FLOPs} = 2 \times \text{num tokens } \times P_{linear}
 \end{equation}
-(Unembedding matmul with $2SDV$ FLOPs and $DV$ parameters also follows the same thumb rule.)^[The thumb rule is sometimes written as $2 \times \text{num tokens } \times P$, where $P$ is the total number of parameters. This is convenient but introduces error. For example, for Qwen3-8B out of 8.18B total parameters, 622M are in the embedding matrix. This overestimates FLOPs by ~7.6%.]
+(Unembedding matmul with $2SDV$ FLOPs and $DV$ parameters also follows the same thumb rule.)^[The thumb rule is sometimes written as $2 \times \text{num tokens } \times P$, where $P$ is the total number of parameters. This is convenient but introduces error. For example, for Qwen3-8B out of 8.18B total parameters, 622M are in the embedding matrix. This overestimates FLOPs by ~8.2%.]
 
 In effect, each weight parameter participates in one multiply and one add (that is, one fused-multiply-add) per token.
 
 ### Profiling FLOPs Count for Qwen3-8B Forward Pass
 
-Let us evaluate how accurate FLOPs count estimates are by profiling forward pass on a Qwen3-8B model running in BF16 precision on the H100 GPU. FlashAttention-2 was used for SDPA. Only the logit for the last token was generated, so we account $2DV$ FLOPs for the unembedding layer. We vary the sequence lengths and for each len, we collect the number of BF16 FLOPs performed by the Tensor Cores using Nsight Compute. ^[Ideally BF16 FLOPs of ordinary CUDA Cores (non-matmul ops) should also be collected. This results in large profiling overhead due Nsight Compute replays, so we avoided collecting them.]
+Let us evaluate how accurate FLOPs count estimates are by profiling forward pass on a Qwen3-8B model running in BF16 precision on the H100 GPU. Qwen3-8B uses grouped multi-query attention (GQA) rather than MHA considered here; also, its MLP uses gating einsum. We refer to the [Transformer Accounting](https://jax-ml.github.io/scaling-book/transformers/) chapter of the Scaling book for details on how that changes the FLOPs estimate. FlashAttention-2 was used as the attention backend. Only the logits for the last token was generated, so we account $2DV$ FLOPs for the unembedding layer. We vary the sequence lengths and for each len, we collect the number of BF16 FLOPs performed by the Tensor Cores using Nsight Compute. ^[Ideally BF16 FLOPs of ordinary CUDA Cores (non-matmul ops) should also be collected. This results in large profiling overhead due Nsight Compute replays, so we avoided collecting them.]
 
 ::: {.intro-figure}
 ![**Figure**: Ratio of BF16 FLOPs done by Tensor Cores (using profiler) to thumb rule FLOPs for Qwen3-8B with varying sequence lengths.](qwen3_flop_ratios.png){width=70%}
 :::
 
-We observe that our estimate incorporating attention FLOPs is accurate to within 2% even at large sequence length. On the other hand, considering only matmul FLOPs gives reasonable estimates only upto about 4k sequence length, beyond which the error grows rapidly.
+We observe that our estimate incorporating attention FLOPs is accurate with respect to Tensor Core FLOPs (does matmul operations) to within 2% even at large sequence length. On the other hand, considering only linear projection FLOPs gives estimates within roughly 10% up to about 4k sequence length, beyond which the error grows rapidly.
