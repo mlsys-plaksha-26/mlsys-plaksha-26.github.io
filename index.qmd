@@ -30,11 +30,16 @@ This course focuses on inference for transformer-based LLMs on NVIDIA GPUs.
 
 ### Lectures
 
-**Lecture 1: Introduction**
+**Topic 1: Introduction**
 
 [Slides](slides/lecture1_intro.pdf)  [Notes](writeups/intro/introduction.html)
 
-**Lecture 2: Transformer FLOPs Accounting**
+**Topic 2: Transformer FLOPs Accounting**
 
 [Notes](writeups/transformer_flops/transformer_flops.html)
+
+**Topic 3: Roofline Analysis**
+
+[Notes](writeups/roofline/roofline_analysis.html)
+
 
