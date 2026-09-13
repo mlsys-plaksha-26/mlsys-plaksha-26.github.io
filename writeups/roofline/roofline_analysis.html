@@ -152,20 +152,20 @@ window.Quarto = {
 <figcaption><strong>Figure</strong>: Overlap for compute-bound workload.</figcaption>
 </figure>
 </div>
-<p>Once the pipeline is running, the time per chunk is the maximum of the compute time and the transfer time of its input data. When there are a lot of chunks, the time taken to fill and drain the pipeline is relatively small. Hence, we can approximately write</p>
+<p>Once the pipeline is running, the time per chunk is the maximum of the compute time and the transfer time of its input data. When there are a lot of chunks, the time taken to fill and drain the pipeline is relatively small. Hence, for an effectively overlapped, steady-state pipeline we can approximately write</p>
 <p><span class="math inline">\(T_{total} \approx max(T_{compute}, T_{transfer})\)</span></p>
 <p>where <span class="math inline">\(T_{compute}\)</span> is the total compute time summed up across all chunks and <span class="math inline">\(T_{transfer}\)</span> is the total transfer time summed up across all chunks.</p>
 <section id="how-gpu-achieves-overlap" class="level3">
 <h3 class="anchored" data-anchor-id="how-gpu-achieves-overlap">How GPU Achieves Overlap</h3>
 <p>The following subsections make use of terms that will be discussed in later lectures. So one may return here after covering those topics.</p>
-<section id="warp-oversubscription" class="level4">
-<h4 class="anchored" data-anchor-id="warp-oversubscription">Warp Oversubscription</h4>
+<section id="latency-hiding-with-multiple-resident-warps" class="level4">
+<h4 class="anchored" data-anchor-id="latency-hiding-with-multiple-resident-warps">Latency Hiding with Multiple Resident Warps</h4>
 <p>GPUs accommodate a lot of warps because they help in hiding the long latency of global memory accesses. When the load request of a warp is being serviced, the warp scheduler can issue arithmetic instructions from another warp whose inputs are ready.</p>
 <p>In the following schematic, we have 6 warps issuing load requests to memory. When the load request of a warp is being serviced, the warp scheduler issues arithmetic instructions from other warps.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="warp_overlap.png" class="img-fluid figure-img" style="width:99.0%"></p>
-<figcaption><strong>Figure</strong>: Warp oversubscription lets us overlap computation on long-latency memory accesses.</figcaption>
+<figcaption><strong>Figure</strong>: Simplified illustration of one warp scheduler’s activity. Warp oversubscription lets us overlap computation on long-latency memory accesses.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></figcaption>
 </figure>
 </div>
 <p>The hardware automatically achieves this overlap by scheduling a ready-to-run warp when the load request of a warp is being serviced. As programmer, we need to ensure that there are several warps on each SM for this to work.</p>
@@ -203,12 +203,12 @@ window.Quarto = {
 <ol type="a">
 <li>execution time,</li>
 <li>total number of FLOPs performed, and</li>
-<li>total number of bytes transferred (considering both reads and writes). <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></li>
+<li>total number of bytes transferred (considering both reads and writes). <a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></li>
 </ol>
 <p>From these we can derive:</p>
 <p><span class="math inline">\(\text{Achieved Intensity} = \frac{\text{Total FLOPs}}{\text{Total Bytes Transferred}}\)</span></p>
 <p><span class="math inline">\(\text{Achieved Throughput} = \frac{\text{Total FLOPs}}{\text{Execution Time}}\)</span></p>
-<p>These let us place a point corresponding to the implementation on the roofline plot. The location of this point informs us of the kind of kernel optimizations we should be targeting. The following figure explains this:</p>
+<p>These let us place a point corresponding to the implementation on the roofline plot. <a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> The location of this point informs us of the kind of kernel optimizations we should be targeting. The following figure explains this:</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="roofline_optimizations.png" class="img-fluid figure-img" style="width:99.0%"></p>
@@ -222,15 +222,15 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="matmul-kernel-example">Matmul Kernel Example</h3>
 <p>As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We’ll run this kernel on CUDA cores (not Tensor cores) on an A10 GPU for simplicity. We consider three implementations:</p>
 <ol type="1">
-<li><p>a <a href="https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70">naive version</a> that does not use shared memory creating lots of redundant global memory accesses,</p></li>
-<li><p>a more <a href="https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af">optimized version</a> where threads in a block cooperate by loading data into shared memory, thereby decreasing read requests, and</p></li>
+<li><p>a <a href="https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70">naive version</a> that does not use shared memory creating lots of redundant DRAM traffic <a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>,</p></li>
+<li><p>a more <a href="https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af">optimized version</a> where threads in a 32x32 tile cooperate by loading data into shared memory, thereby decreasing read requests, and</p></li>
 <li><p>cuBLAS implementation, configured to use ordinary FP32 arithmetic; highly optimized by kernel engineers.</p></li>
 </ol>
 <p>For each, we collect the execution time, total FLOPs performed, and total bytes transferred to/from global memory using Nsight Compute.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="a10_roofline.png" class="img-fluid figure-img" style="width:99.0%"></p>
-<figcaption><strong>Figure</strong>: Roofline figure for an A10 GPU with (achieved intensity, achieved throughput) of 3 FP32 matmul implementations plotted.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></figcaption>
+<figcaption><strong>Figure</strong>: Roofline figure for an A10 GPU with (achieved intensity, achieved throughput) of 3 FP32 matmul implementations plotted.<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a></figcaption>
 </figure>
 </div>
 <p>The measurements are summarized in the following table:</p>
@@ -299,8 +299,11 @@ Table&nbsp;1: Recorded measurements for FP32 multiplication of two 4096 by 4096 
 <div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>Note that bytes transfer data should correspond from and to the memory subsystem we are considering.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>A10 has an advertised peak FP32 throughput of 31.24 TFLOPs/sec at maximum clock frequency of 1.7GHz. However, the profiler ran at clock frequency of 885 MHz and the peak FP32 throughput available at this frequency was 16.31 TFLOPs/sec, so we report this for a fair comparison.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>In reality, warps do not usually have such long uninterrupted compute blocks and do not run to completion before another warp can be scheduled. Actual scheduling happens at instruction-issue granularity.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>Note that bytes transfer data should correspond from and to the memory subsystem we are considering.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>Achived intensity is using a different numerator (total executed FLOPs) than ideal intensity (total useful FLOPs). Hence, ideal intensity may not be an upper-bound on the achieved value. Redundant arithmetic can increase achieved intensity without improving useful performance.<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>It can still benefit from cache hits<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>A10 has an advertised peak FP32 throughput of 31.24 TFLOPs/sec at maximum clock frequency of 1.7GHz. However, the profiler ran at clock frequency of 885 MHz for all three runs and the peak FP32 throughput available at this frequency was 16.31 TFLOPs/sec, so we report this for a fair comparison.<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main>
 <!-- /main column -->
