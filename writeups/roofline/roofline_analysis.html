@@ -129,7 +129,7 @@ window.Quarto = {
 <p>The <a href="https://jax-ml.github.io/scaling-book/roofline/#visualizing-rooflines">All About Rooflines</a> chapter of the Scaling book provides a good discussion of the roofline model. This writeup expands upon it and discusses a few concepts in more detail.</p>
 <section id="overlap-of-computation-and-communication" class="level2">
 <h2 class="anchored" data-anchor-id="overlap-of-computation-and-communication">Overlap of Computation and Communication</h2>
-<p>Consider a computational task comprised of 4 indepedent chunks of work A, B, C, and D. Chunks are independent in the sense that there is no data dependency - the input of a chunk does not depend on the output of any other chunk. Before a chunk can execute, it must wait for its input data to be available in a local buffer. When a chunk is executing, the machine can transfer the input data needed for the next chunk as well as the output data of the previous chunk. In doing so, we must be careful to not overwrite the input or output data of the currently executing chunk.</p>
+<p>Consider a computational task comprised of 4 independent chunks of work A, B, C, and D. Chunks are independent in the sense that there is no data dependency - the input of a chunk does not depend on the output of any other chunk. Before a chunk can execute, it must wait for its input data to be available in a local buffer. When a chunk is executing, the machine can transfer the input data needed for the next chunk as well as the output data of the previous chunk. In doing so, we must be careful to not overwrite the input or output data of the currently executing chunk.</p>
 <p>Let us first assume that the transfer time of input data of a chunk is the same as its execution time. In this case, the following diagram illustrates how computation and communication can be overlapped:</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -138,14 +138,14 @@ window.Quarto = {
 </figure>
 </div>
 <p>Note how the two partitions of the input buffer prevent the input data of currently executing chunk from being overwritten by the input data of the next chunk; the double buffering of the output serves the same purpose.</p>
-<p>For a memory-bound workload, the compute time of a chunk is more than the transfer time of its input data. The following diagram shows this scenario:</p>
+<p>For a memory-bound workload, the transfer time of the input data of a chunk is more than its compute time. The following diagram shows this scenario:</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="overlap_2.png" class="img-fluid figure-img" style="width:99.0%"></p>
 <figcaption><strong>Figure</strong>: Overlap for memory-bound workload.</figcaption>
 </figure>
 </div>
-<p>On the other hand, for a compute-bound workload, the compute time of a chunk is less than the transfer time of its input data:</p>
+<p>On the other hand, for a compute-bound workload, the compute time of a chunk is more than the transfer time of its input data:</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="overlap_3.png" class="img-fluid figure-img" style="width:99.0%"></p>
@@ -157,7 +157,7 @@ window.Quarto = {
 <p>where <span class="math inline">\(T_{compute}\)</span> is the total compute time summed up across all chunks and <span class="math inline">\(T_{transfer}\)</span> is the total transfer time summed up across all chunks.</p>
 <section id="how-gpu-achieves-overlap" class="level3">
 <h3 class="anchored" data-anchor-id="how-gpu-achieves-overlap">How GPU Achieves Overlap</h3>
-<p>The following subsections make use of terms that we will be discussed in later lectures. So one may return here after covering those topics.</p>
+<p>The following subsections make use of terms that will be discussed in later lectures. So one may return here after covering those topics.</p>
 <section id="warp-oversubscription" class="level4">
 <h4 class="anchored" data-anchor-id="warp-oversubscription">Warp Oversubscription</h4>
 <p>GPUs accommodate a lot of warps because they help in hiding the long latency of global memory accesses. When the load request of a warp is being serviced, the warp scheduler can issue arithmetic instructions from another warp whose inputs are ready.</p>
@@ -220,7 +220,7 @@ window.Quarto = {
 </section>
 <section id="matmul-kernel-example" class="level3">
 <h3 class="anchored" data-anchor-id="matmul-kernel-example">Matmul Kernel Example</h3>
-<p>As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We’ll run this kernel on CUDA cores (not Tensor cores) on a A10 GPU for simplicity. We consider three implementations:</p>
+<p>As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We’ll run this kernel on CUDA cores (not Tensor cores) on an A10 GPU for simplicity. We consider three implementations:</p>
 <ol type="1">
 <li><p>a <a href="https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70">naive version</a> that does not use shared memory creating lots of redundant global memory accesses,</p></li>
 <li><p>a more <a href="https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af">optimized version</a> where threads in a block cooperate by loading data into shared memory, thereby decreasing read requests, and</p></li>
@@ -291,7 +291,7 @@ Table&nbsp;1: Recorded measurements for FP32 multiplication of two 4096 by 4096 
 </div>
 </figure>
 </div>
-<p>We notice that all three implementations do almost the same arithmetic FLOPs. The shared-memory optimized version makes better reuse of data read from global memory (fewer total DRAM traffic), hence it shifts mostly to the right of the naive version. The cuBLAS implementation further greatly reduces the DRAM traffic and adds other optimizations to bring both achieved compute throughput and bandwidth closer to their peak values.</p>
+<p>We notice that all three implementations do almost the same arithmetic FLOPs. The shared-memory optimized version makes better reuse of data read from global memory (less total DRAM traffic), hence it shifts mostly to the right of the naive version. However, the 4.2x memory traffic reduction led to only 1.14x speedup, indicating the presence of other bottlenecks. The cuBLAS implementation further greatly reduces the DRAM traffic and adds other optimizations to bring achieved compute throughput closer to its peak value. Due to less DRAM traffic, cuBLAS kernel did not require saturating DRAM bandwidth.</p>
 </section>
 </section>
 

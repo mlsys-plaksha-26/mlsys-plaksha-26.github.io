@@ -9,7 +9,7 @@ The [All About Rooflines](https://jax-ml.github.io/scaling-book/roofline/#visual
 
 ## Overlap of Computation and Communication
 
-Consider a computational task comprised of 4 indepedent chunks of work A, B, C, and D. Chunks are independent in the sense that there is no data dependency - the input of a chunk does not depend on the output of any other chunk. Before a chunk can execute, it must wait for its input data to be available in a local buffer. When a chunk is executing, the machine can transfer the input data needed for the next chunk as well as the output data of the previous chunk. In doing so, we must be careful to not overwrite the input or output data of the currently executing chunk. 
+Consider a computational task comprised of 4 independent chunks of work A, B, C, and D. Chunks are independent in the sense that there is no data dependency - the input of a chunk does not depend on the output of any other chunk. Before a chunk can execute, it must wait for its input data to be available in a local buffer. When a chunk is executing, the machine can transfer the input data needed for the next chunk as well as the output data of the previous chunk. In doing so, we must be careful to not overwrite the input or output data of the currently executing chunk. 
 
 Let us first assume that the transfer time of input data of a chunk is the same as its execution time. In this case, the following diagram illustrates how computation and communication can be overlapped:
 
@@ -17,15 +17,15 @@ Let us first assume that the transfer time of input data of a chunk is the same 
 
 Note how the two partitions of the input buffer prevent the input data of currently executing chunk from being overwritten by the input data of the next chunk; the double buffering of the output serves the same purpose. 
 
-For a memory-bound workload, the compute time of a chunk is more than the transfer time of its input data. The following diagram shows this scenario:
+For a memory-bound workload, the transfer time of the input data of a chunk is more than its compute time. The following diagram shows this scenario:
 
 ![**Figure**: Overlap for memory-bound workload.](overlap_2.png){width=99%}
 
-On the other hand, for a compute-bound workload, the compute time of a chunk is less than the transfer time of its input data:
+On the other hand, for a compute-bound workload, the compute time of a chunk is more than the transfer time of its input data:
 
 ![**Figure**: Overlap for compute-bound workload.](overlap_3.png){width=99%}
 
-Once the pipeline is running, the time per chunk is the maximum of the compute time and the transfer time of its input data. When there are a lot of chunks, the time taken to fill and drain the pipeline is relatively small. Hence, we can approximately write
+Once the pipeline is running, the time per chunk is the maximum of the compute time and the transfer time of its input data. When there are a lot of chunks, the time taken to fill and drain the pipeline is relatively small. Hence, for an effectively overlapped, steady-state pipeline we can approximately write
 
 $T_{total} \approx max(T_{compute}, T_{transfer})$
 
@@ -33,15 +33,15 @@ where $T_{compute}$ is the total compute time summed up across all chunks and $T
 
 ### How GPU Achieves Overlap
 
-The following subsections make use of terms that we will be discussed in later lectures. So one may return here after covering those topics. 
+The following subsections make use of terms that will be discussed in later lectures. So one may return here after covering those topics. 
 
-#### Warp Oversubscription
+#### Latency Hiding with Multiple Resident Warps
 
 GPUs accommodate a lot of warps because they help in hiding the long latency of global memory accesses. When the load request of a warp is being serviced, the warp scheduler can issue arithmetic instructions from another warp whose inputs are ready.
 
 In the following schematic, we have 6 warps issuing load requests to memory. When the load request of a warp is being serviced, the warp scheduler issues arithmetic instructions from other warps.   
 
-![**Figure**: Warp oversubscription lets us overlap computation on long-latency memory accesses.](warp_overlap.png){width=99%}
+![**Figure**: Simplified illustration of one warp scheduler's activity. Warp oversubscription lets us overlap computation on long-latency memory accesses.^[In reality, warps do not usually have such long uninterrupted compute blocks and do not run to completion before another warp can be scheduled. Actual scheduling happens at instruction-issue granularity.]](warp_overlap.png){width=99%}
 
 The hardware automatically achieves this overlap by scheduling a ready-to-run warp when the load request of a warp is being serviced. As programmer, we need to ensure that there are several warps on each SM for this to work.
 
@@ -99,7 +99,7 @@ $\text{Achieved Intensity} = \frac{\text{Total FLOPs}}{\text{Total Bytes Transfe
 
 $\text{Achieved Throughput} = \frac{\text{Total FLOPs}}{\text{Execution Time}}$
 
-These let us place a point corresponding to the implementation on the roofline plot. The location of this point informs us of the kind of kernel optimizations we should be targeting. The following figure explains this:
+These let us place a point corresponding to the implementation on the roofline plot. ^[Achived intensity is using a different numerator (total executed FLOPs) than ideal intensity (total useful FLOPs). Hence, ideal intensity may not be an upper-bound on the achieved value. Redundant arithmetic can increase achieved intensity without improving useful performance.] The location of this point informs us of the kind of kernel optimizations we should be targeting. The following figure explains this:
 
 ![**Figure**: The location of the implementation point on the roofline plot informs us of optimization opportunities.](roofline_optimizations.png){width=99%} 
 
@@ -109,18 +109,18 @@ $\text{Achieved Bandwidth} = \frac{\text{Total Bytes Transferred}}{\text{Executi
 
 ### Matmul Kernel Example
 
-As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We'll run this kernel on CUDA cores (not Tensor cores) on a A10 GPU for simplicity. We consider three implementations:
+As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We'll run this kernel on CUDA cores (not Tensor cores) on an A10 GPU for simplicity. We consider three implementations:
 
-1. a [naive version](https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70) that does not use shared memory creating lots of redundant global memory accesses,
+1. a [naive version](https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70) that does not use shared memory creating lots of redundant DRAM traffic ^[It can still benefit from cache hits],
 
-2. a more [optimized version](https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af) where threads in a block cooperate by loading data into shared memory, thereby decreasing read requests, and
+2. a more [optimized version](https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af) where threads in a 32x32 tile cooperate by loading data into shared memory, thereby decreasing read requests, and
 
 3. cuBLAS implementation, configured to use ordinary FP32 arithmetic; highly optimized by kernel engineers.
 
 For each, we collect the execution time, total FLOPs performed, and total bytes transferred to/from global memory using Nsight Compute.  
 
 
-![**Figure**: Roofline figure for an A10 GPU with (achieved intensity, achieved throughput) of 3 FP32 matmul implementations plotted.^[A10 has an advertised peak FP32 throughput of 31.24 TFLOPs/sec at maximum clock frequency of 1.7GHz. However, the profiler ran at clock frequency of 885 MHz and the peak FP32 throughput available at this frequency was 16.31 TFLOPs/sec, so we report this for a fair comparison.]](a10_roofline.png){width=99%}
+![**Figure**: Roofline figure for an A10 GPU with (achieved intensity, achieved throughput) of 3 FP32 matmul implementations plotted.^[A10 has an advertised peak FP32 throughput of 31.24 TFLOPs/sec at maximum clock frequency of 1.7GHz. However, the profiler ran at clock frequency of 885 MHz for all three runs and the peak FP32 throughput available at this frequency was 16.31 TFLOPs/sec, so we report this for a fair comparison.]](a10_roofline.png){width=99%}
 
 The measurements are summarized in the following table:
 
@@ -135,4 +135,4 @@ The measurements are summarized in the following table:
 
 : Recorded measurements for FP32 multiplication of two 4096 by 4096 matrices on an A10 GPU. {#tbl-matmul-measurements}
 
-We notice that all three implementations do almost the same arithmetic FLOPs. The shared-memory optimized version makes better reuse of data read from global memory (fewer total DRAM traffic), hence it shifts mostly to the right of the naive version. The cuBLAS implementation further greatly reduces the DRAM traffic and adds other optimizations to bring both achieved compute throughput and bandwidth closer to their peak values.
+We notice that all three implementations do almost the same arithmetic FLOPs. The shared-memory optimized version makes better reuse of data read from global memory (less total DRAM traffic), hence it shifts mostly to the right of the naive version. However, the 4.2x memory traffic reduction led to only 1.14x speedup, indicating the presence of other bottlenecks. The cuBLAS implementation further greatly reduces the DRAM traffic and adds other optimizations to bring achieved compute throughput closer to its peak value. Due to less DRAM traffic, cuBLAS kernel did not require saturating DRAM bandwidth.
