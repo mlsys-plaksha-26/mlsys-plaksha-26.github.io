@@ -22,7 +22,7 @@ This course focuses on inference for transformer-based LLMs on NVIDIA GPUs.
 
 *Programming Massively Parallel Processors: A Hands-on Approach* by Hwu, W.-m. W., Kirk, D. B., & El Hajj, I. 4th edition (2022)
 
-**Credits**: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course. The student notes are by Suraj Dayma at Plaksha.
+**Credits**: I would like to thank Nipun Kwatra (Microsoft Research India) and Eric Auld (Together.ai) who provided valuable feedback on the structure and design of the course. The student notes are by Suraj Dayma and Tisha Bhavsar at Plaksha.
 
 **Feedback**: If you notice any errors or have suggestions for improving the notes, please email me at [pankaj.pansari@plaksha.edu.in](mailto:pankaj.pansari@plaksha.edu.in).
 
