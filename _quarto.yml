@@ -1,5 +1,9 @@
 project:
   type: default
+  render:
+    - "**/*.qmd"
+    # README files are excluded from automatic discovery; include this explicitly.
+    - writeups/tiled_matmul_assignment/README.qmd
 
 format:
   html:

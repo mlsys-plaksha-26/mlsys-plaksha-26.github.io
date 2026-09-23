@@ -1,0 +1,47 @@
+---
+title: "Assignment 1: Tiled Matrix Multiplication in CUDA"
+author:
+    name: Pankaj Pansari
+    affiliation: Plaksha University
+---
+
+### Description
+
+This assignment involves implementing and comparing two GPU kernels to perform tiled matrix multiplication C = A * B. Each tile is computed by one warp (group of 32 threads). In one implementation, the input is read directly from global memory. In the second version, input tiles are staged in shared memory for reuse across warps in a block.
+
+The given codebase provides the scaffolding and utilities to launch the kernels and check their correctness with respect to cuBLAS's output. We assume that input matrices A[M, K] and B[K, N] and output C[M, N] are stored in row-major order as FP32 values. Each warp performs this multiplication: A\_tile[16, 8] * B\_tile[8, 16] -> C\_tile[16, 16] at each reduction step (and then we accumulate the partial results). The provided warp MMA (WMMA) helpers use TF32 inputs with FP32 accumulation. The input matrices are of dimensions [4096, 4096].
+
+This assignment requires an NVIDIA GPU with compute capability 8.0 or higher (Ampere architecture or later) and CUDA Toolkit with cuBLAS.
+
+#### Commands:
+
+- `make`: to build the codebase
+- `./sgemm`: to call the kernels and report correctness (with respect to cuBLAS)
+- `./sgemm --benchmark`: to obtain timing measurements for your implementations (runs after correctness succeeds)
+
+### Tasks 
+Implement the following in `wmma_kernels.cu`:
+
+- Write `wmma_simple()` using helpers in `tile_mma.cuh` to initialize the accumulator, accumulate tile products, and store the results. All input loads are done directly from global memory.
+
+- Complete the portions marked TODOs in `wmma_shared()` to
+  1. Complete the cooperative global-to-shared loads
+  2. Provide correct shared-memory pointers and leading dimensions to `tile_mma()`
+
+Keep the provided launch configuration, helper functions, and correctness check code unchanged.
+
+In addition, answer the following questions in `wmma_assignment.txt`:
+
+1. There are two calls to `__syncthreads()` in `wmma_shared()`. Why is each needed?
+
+2. How many bytes of input data does one block in `wmma_simple()` request from global memory over the full reduction dimension K? In our case, one block comprises 2 x 2 warps. Report answer in kB.
+
+3. How many bytes of input data does one block in `wmma_shared()` request from global memory over the full reduction dimension K? In our case, one block comprises 2 x 2 warps. Report answer in kB.
+
+Repeated loads by different warps are to be counted separately for the above accounting. Please ignore effects of caches and memory transaction granularity.
+
+Bonus:
+
+4. Compare the runtimes of the `wmma_simple()` and `wmma_shared()`; the provided codebase reports these. Does using shared memory staging help in speeding up the kernel? Explain why or why not. 
+
+**Deliverables**: Completed `wmma_kernels.cu` and `wmma_assignment.txt`.

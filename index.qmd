@@ -49,3 +49,7 @@ This course focuses on inference for transformer-based LLMs on NVIDIA GPUs.
 **Topic 5: CUDA Programming Model**
 
 [Student Notes](slides/04-CUDAProgramming_Suraj.pdf)
+
+**Assignment 1: Tiled Matrix Multiplication in CUDA**
+
+[Notes](writeups/tiled_matmul_assignment/README.html) [Code](slides/wmma_assignment.tar.gz)
