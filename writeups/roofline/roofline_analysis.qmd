@@ -37,17 +37,17 @@ The following subsections make use of terms that will be discussed in later lect
 
 #### Latency Hiding with Multiple Resident Warps
 
-GPUs accommodate a lot of warps because they help in hiding the long latency of global memory accesses. When the load request of a warp is being serviced, the warp scheduler can issue arithmetic instructions from another warp whose inputs are ready.
+GPUs accommodate a lot of [warps](../../glossary.html#warp) because they help in hiding the long [latency](../../glossary.html#latency) of global memory accesses. When the load request of a warp is being serviced, the warp scheduler can issue arithmetic instructions from another warp whose inputs are ready.
 
 In the following schematic, we have 6 warps issuing load requests to memory. When the load request of a warp is being serviced, the warp scheduler issues arithmetic instructions from other warps.   
 
 ![**Figure**: Simplified illustration of one warp scheduler's activity. Warp oversubscription lets us overlap computation on long-latency memory accesses.^[In reality, warps do not usually have such long uninterrupted compute blocks and do not run to completion before another warp can be scheduled. Actual scheduling happens at instruction-issue granularity.]](warp_overlap.png){width=99%}
 
-The hardware automatically achieves this overlap by scheduling a ready-to-run warp when the load request of a warp is being serviced. As programmer, we need to ensure that there are several warps on each SM for this to work.
+The hardware automatically achieves this overlap by scheduling a ready-to-run warp when the load request of a warp is being serviced. As programmer, we need to ensure that there are several warps on each [SM](../../glossary.html#sm) for this to work.
 
-#### Tile Prefetching and Pipelining
+#### Tile [Prefetching](../../glossary.html#prefetching) and [Pipelining](../../glossary.html#pipelining)
 
-Some computations can be decomposed into smaller problems by partitioning the input tensor into tiles. The output can then be computed tile by tile. The kernel issues transfers from global memory to shared memory early, then performs computation on an already available tile. Data transfer can happen in the background while the current compute units are busy. 
+Some computations can be decomposed into smaller problems by partitioning the input tensor into [tiles](../../glossary.html#tile). The output can then be computed tile by tile. The kernel issues transfers from global memory to shared memory early, then performs computation on an already available tile. Data transfer can happen in the background while the current compute units are busy. 
 
 The CUDA runtime does not automatically transform a basic tiled loop into this pipeline. The kernel author has to arrange the buffers, early copies, and synchronization.
 
@@ -65,7 +65,7 @@ If we take logarithm of both sides, we get
 
 $\log(\text{Achieved Compute Throughput}) = \log(\text{Intensity}) + \log(\text{Achieved Memory Bandwidth})$
 
-We can upper bound the achieved compute throughput by replacing the achieved memory bandwidth with the peak memory bandwidth. We get
+We can upper bound the achieved compute [throughput](../../glossary.html#throughput) by replacing the achieved memory bandwidth with the peak memory bandwidth. We get
 
 $\log(\text{Achieved Compute Throughput}) \leq \log(\text{Intensity}) + \log(\text{Peak Memory Bandwidth})$
 
@@ -75,7 +75,7 @@ $\log(\text{Achieved Throughput}) \leq \min(\log(\text{Peak  Throughput}), \log(
 
 The values of $\log(\text{Peak Throughput})$ and $\log(\text{Peak Bandwidth})$ depend on which compute unit and memory subsystem we are considering:
 
-**Peak throughput** - Are we running computation on Tensor Cores or CUDA Cores? What are the data types of operands?
+**Peak throughput** - Are we running computation on [Tensor Cores](../../glossary.html#tensor-cores) or [CUDA Cores](../../glossary.html#cuda-cores)? What are the data types of operands?
 
 **Peak bandwidth** - Are we focusing on data coming from global memory or L1 or L2 caches? 
 
@@ -111,11 +111,11 @@ $\text{Achieved Bandwidth} = \frac{\text{Total Bytes Transferred}}{\text{Executi
 
 As a concrete example, consider a kernel multiplying two 4096 by 4096 matrices in FP32. We'll run this kernel on CUDA cores (not Tensor cores) on an A10 GPU for simplicity. We consider three implementations:
 
-1. a [naive version](https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70) that does not use shared memory creating lots of redundant DRAM traffic ^[It can still benefit from cache hits],
+1. a [naive version](https://gist.github.com/pankajpansari/246e12261c30bb23de4416f88369db70) that does not use shared memory creating lots of redundant [DRAM](../../glossary.html#dram) traffic ^[It can still benefit from cache hits],
 
 2. a more [optimized version](https://gist.github.com/pankajpansari/b96de390d5b39caee3399e83b3e9d2af) where threads in a 32x32 tile cooperate by loading data into shared memory, thereby decreasing read requests, and
 
-3. cuBLAS implementation, configured to use ordinary FP32 arithmetic; highly optimized by kernel engineers.
+3. [cuBLAS](../../glossary.html#cublas) implementation, configured to use ordinary FP32 arithmetic; highly optimized by kernel engineers.
 
 For each, we collect the execution time, total FLOPs performed, and total bytes transferred to/from global memory using Nsight Compute.  
 

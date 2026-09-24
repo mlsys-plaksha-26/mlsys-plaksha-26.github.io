@@ -1,0 +1,70 @@
+---
+title: "Glossary"
+author:
+    name: Pankaj Pansari
+    affiliation: Plaksha University
+---
+
+[**BF16 (Brain floating point)**]{#bf16}: A 16-bit floating-point format with 1 sign bit, 8 exponent bits, and 7 fraction bits. It offers approximately the same numerical range as FP32 but lower precision, while using half the storage. Widely used in model training and inference.
+
+[**Compute capability**]{#compute-capability}: A version number, such as 8.6, that identifies the hardware features supported by an NVIDIA GPU. CUDA compiler targets use that number in names such as `compute_86` (virtual architecture) and `sm_86` (real architecture).
+
+[**cuBLAS**]{#cublas}: NVIDIA's optimized library for basic linear algebra operations on GPUs, including vector operations and matrix multiplication. It implements BLAS (Basic Linear Algebra Subprograms).
+
+[**CUDA cores**]{#cuda-cores}: Arithmetic execution units within a streaming multiprocessor (SM) that perform math operations on scalars. An SM contains execution units for different data types, such as FP32, FP64, and integers; their organization depends on the GPU architecture.
+
+[**Dynamic random-access memory (DRAM)**]{#dram}: A memory technology that is distinct from static RAM (SRAM). As compared to SRAM, it allows large storage but has higher latency accesses. CPU main memory and GPU global memory commonly use DRAM.
+
+[**FlashAttention**]{#flash-attention}: An I/O-aware algorithm for computing exact attention efficiently on GPUs. It avoids materialization of the full attention-score matrix in GPU global memory, thereby reducing memory traffic and usage. FlashAttention often substantially accelerates attention. 
+
+[**FP16 (half precision)**]{#fp16}: A 16-bit floating-point format with 1 sign bit, 5 exponent bits, and 10 fraction bits. It offers greater precision than BF16 but a much narrower numerical range.
+
+[**FP32 (single precision)**]{#fp32}: A 32-bit floating-point format with 1 sign bit, 8 exponent bits, and 23 fraction bits. It provides approximately seven significant decimal digits of precision.
+
+[**Fused multiply-add (FMA)**]{#fma}: Single instruction that performs $a * b + c$ with a single rounding step after multiplication and addition. A scalar FMA instruction counts as two floating-point operations (FLOPs)
+
+[**Gated feed-forward network (gated FFN)**]{#gated-ffn}: A feed-forward network that applies two learned linear projections to the same input, passes one through an activation function, and multiplies their outputs element-wise before applying a final linear projection:
+
+$\operatorname{FFN}(X) = \bigl[\phi(XW_g) \odot (XW_u) \bigr] W_d$
+
+Here, $\odot$ denotes elementwise multiplication; biases are omitted. SwiGLU is a common example, using the SiLU activation for $\phi$.
+
+[**Grouped query attention (GQA)**]{#gqa}: A variant of multi-head attention in which query heads are divided into groups, with each group sharing one key head and one value head. This reduces KV cache size, and memory traffic and can speed up token generation.
+
+[**Layer normalization (LayerNorm)**]{#layernorm}: An operation that normalizes an input vector using the mean $\mu$ and variance $\sigma^2$ of its own elements, then applies learned scaling $\gamma_i$ and shifting $\beta_i$ factors as:  
+
+$y_i = \gamma_i \frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}} + \beta_i$ 
+
+where $i$ indexes element in the vector. $\epsilon$ is a small positive constant for numerical stability. LayerNorm helps stabilize training.
+
+[**Latency**]{#latency}: The elapsed time between initiating a request or operation and its completion. 
+
+[**Matrix multiply-accumulate (MMA)**]{#mma}: An operation that multiplies two matrices $A$ and $B$, and adds an accumulator matrix $C$ as $C = A * B + C$. NVIDIA GPUs provide Tensor Core instructions for this operation on small matrix tiles.
+
+[**Mixture-of-experts model (MoE)**]{#moe}: A Transformer-based architecture where the FFN sublayer at every layer comprises multiple small MLPs called experts. Each token is assigned to a subset of experts by a learned router and the expert outputs combined using learned routing weights. 
+
+[**Memory-transaction granularity**]{#memory-transaction-granularity}: The smallest aligned region of memory transferred by a particular level of the GPU memory system when servicing memory accesses.
+
+[**Nsight Compute**]{#nsight-compute}: NVIDIA's profiler for individual GPU kernels. It collects detailed performance metrics to help identify performance bottlenecks. 
+
+[**Pipelining**]{#pipelining}: Dividing a process into stages so that different operations can occupy different stages simultaneously. In an instruction pipeline, for example, one instruction may be decoded while another executes. This increases throughput, though latency of an individual instruction remains the same. 
+
+[**Prefetching**]{#prefetching}: Fetching data before it's needed, initiated either automatically by hardware or explicitly by software. By overlapping data transfer with computation, prefetching can reduce memory stalls and improve compute-unit utilization. 
+
+[**Rectified linear unit (ReLU)**]{#relu}: A non-linear activation function defined as $y = \max(0, x)$ applied independently to each element of its input. It helps to avoid a few numerical issues in training deep neural networks.
+
+[**Reduction**]{#reduction}: Combining a collection of values into a single result using an operation such as sum, maximum, or product. Reducing along a dimension combines values along that dimension while keeping the other indices fixes. For instance, $C[i,  j]= \sum_k A[i, k]*B[k, j]$ performs a sum reduction over $k$.
+
+[**Shared memory**]{#shared-memory}: A small, high-bandwidth, programmer-managed memory located on each streaming multiprocessor. Threads in the same thread block can use it to share and reuse data, reducing accesses to slower GPU global memory.
+
+[**Streaming multiprocessor (SM)**]{#sm}: A processing unit within a GPU that executes the thread blocks assigned to it. It contains warp schedulers, CUDA and Tensor cores, registers, shared memory, and an L1 cache. Multiple thread blocks can reside on an SM simultaneously, subject to resource limits.
+
+[**Tensor cores**]{#tensor-cores}: Specialized arithmetic units within an SM that executes matrix multiply-accumulate instructions at high throughput. They operate on small matrix tiles, with supported data types and tile sizes depending on the GPU architecture.
+
+[**TF32 (TensorFloat-32)**]{#tf32}: A 32-bit representation used for computation by Tensor Cores. It combines FP32’s exponent range with FP16’s reduced fraction precision. This precision reduction can be tolerated for neural networks and TF32 lets the GPU multiply matrices much faster. The inputs are typically stored as FP32 but are converted to TF32 for multiplication; output is in FP32.
+
+[**Throughput**]{#throughput}: The amount of work completed per unit of time. Compute throughput is commonly measured in floating-point operations per second (FLOPs/sec).
+
+[**Tile**]{#tile}: A rectangular portion of a matrix treated as a unit of computation or data movement. Tiled matrix multiplication divides the computation into smaller pieces to enable parallel execution and improve data reuse. 
+
+[**Warps**]{#warp}: A group of 32 threads from the same thread block, used as the basic unit of scheduling within a GPU. An issued instruction operates on the participating threads of the warp, each using its own data. 

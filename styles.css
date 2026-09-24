@@ -84,6 +84,17 @@ a:focus {
   color: var(--accent-hover);
 }
 
+a[href*="glossary.html#"] {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+a[href*="glossary.html#"]:hover,
+a[href*="glossary.html#"]:focus {
+  text-decoration-style: solid;
+}
+
 .quarto-title-meta,
 .quarto-title-meta-heading,
 .quarto-title-meta-contents,

@@ -7,11 +7,11 @@ author:
 
 ### Description
 
-This assignment involves implementing and comparing two GPU kernels to perform tiled matrix multiplication C = A * B. Each tile is computed by one warp (group of 32 threads). In one implementation, the input is read directly from global memory. In the second version, input tiles are staged in shared memory for reuse across warps in a block.
+This assignment involves implementing and comparing two GPU kernels to perform tiled matrix multiplication C = A * B. Each tile is computed by one warp (group of 32 threads). In one implementation, the input is read directly from global memory. In the second version, input tiles are staged in [shared memory](../../glossary.html#shared-memory) for reuse across warps in a block.
 
-The given codebase provides the scaffolding and utilities to launch the kernels and check their correctness with respect to cuBLAS's output. We assume that input matrices A[M, K] and B[K, N] and output C[M, N] are stored in row-major order as FP32 values. Each warp performs this multiplication: A\_tile[16, 8] * B\_tile[8, 16] -> C\_tile[16, 16] at each reduction step (and then we accumulate the partial results). The provided warp MMA (WMMA) helpers use TF32 inputs with FP32 accumulation. The input matrices are of dimensions [4096, 4096].
+The given codebase provides the scaffolding and utilities to launch the kernels and check their correctness with respect to cuBLAS's output. We assume that input matrices A[M, K] and B[K, N] and output C[M, N] are stored in row-major order as [FP32](../../glossary.html#fp32) values. Each warp performs this multiplication: A\_tile[16, 8] * B\_tile[8, 16] -> C\_tile[16, 16] at each [reduction](../../glossary.html#reduction) step (and then we accumulate the partial results). The provided warp [MMA](../../glossary.html#mma) (WMMA) helpers use [TF32](../../glossary.html#tf32) inputs with FP32 accumulation. The input matrices are of dimensions [4096, 4096].
 
-This assignment requires an NVIDIA GPU with compute capability 8.0 or higher (Ampere architecture or later) and CUDA Toolkit with cuBLAS.
+This assignment requires an NVIDIA GPU with [compute capability](../../glossary.html#compute-capability) 8.0 or higher (Ampere architecture or later) and CUDA Toolkit with cuBLAS.
 
 #### Commands:
 
@@ -38,7 +38,7 @@ In addition, answer the following questions in `wmma_assignment.txt`:
 
 3. How many bytes of input data does one block in `wmma_shared()` request from global memory over the full reduction dimension K? In our case, one block comprises 2 x 2 warps. Report answer in kB.
 
-Repeated loads by different warps are to be counted separately for the above accounting. Please ignore effects of caches and memory transaction granularity.
+Repeated loads by different warps are to be counted separately for the above accounting. Please ignore effects of caches and [memory transaction granularity](../../glossary.html#memory-transaction-granularity).
 
 Bonus:
 

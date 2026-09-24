@@ -53,3 +53,5 @@ This course focuses on inference for transformer-based LLMs on NVIDIA GPUs.
 **Assignment 1: Tiled Matrix Multiplication in CUDA**
 
 [README.md](writeups/tiled_matmul_assignment/README.html) [Code](slides/wmma_assignment.tar.gz)
+
+[Glossary](glossary.html)

@@ -33,7 +33,7 @@ In this case, the total FLOP count is $K$ times $2NPM$, that is, $2KNPM$ FLOPs.
 
 We'll calculate FLOPs for a forward pass through one Transformer layer and multiply that value by $L$, the number of layers in the model. We also need to account for the embedding and unembedding operations at the very start and end respectively.
 
-As a first approximation, we can the ignore the contribution of ReLU, layer normalization, and softmax to the total FLOPs count. These operations require relatively few FLOPs per element, so their contribution is much smaller than that of tensor multiplications.
+As a first approximation, we can the ignore the contribution of [ReLU](../../glossary.html#relu), [layer normalization](../../glossary.html#layernorm), and softmax to the total FLOPs count. These operations require relatively few FLOPs per element, so their contribution is much smaller than that of tensor multiplications.
 
 ### MLPs
 \begin{array}{ccc}
@@ -74,7 +74,7 @@ A[S,N,H] \cdot W_O[N,H,D]
 \end{array}
 
 #### Scaled Dot product Attention (SDPA)
-SDPA involves repeating the SH.HS matmul over $N$ heads to get similarity scores, and then repeating the SS.SH matmul over the $N$ heads to get attention-weighted values. In autoregressive inference, a token attends only to the tokens coming before it in the sequence. The attention matrix is lower-triangular and efficient attention kernels, such as FlashAttention, approximately halve the number of query-key pairs.
+SDPA involves repeating the $[S, H] \cdot [H, S]$ matmul over $N$ heads to get similarity scores, and then repeating the $[S, S] \cdot [S, H]$ matmul over the $N$ heads to get attention-weighted values. In autoregressive inference, a token attends only to the tokens coming before it in the sequence. The attention matrix is lower-triangular and efficient attention kernels, such as [FlashAttention](../../glossary.html#flash-attention), approximately halve the number of query-key pairs.
 
 \begin{array}{cc}
 \textrm{operation} & \textrm{FLOPs} \\
@@ -147,11 +147,11 @@ For the short-context regime ($S << 12D$), the quadratic attention FLOPs are sma
 \end{equation}
 (Unembedding matmul with $2SDV$ FLOPs and $DV$ parameters also follows the same thumb rule.)^[The thumb rule is sometimes written as $2 \times \text{num tokens } \times P$, where $P$ is the total number of parameters. This is convenient but introduces error. For example, for Qwen3-8B out of 8.18B total parameters, 622M are in the embedding matrix. This overestimates FLOPs by ~8.2%.]
 
-In effect, each weight parameter participates in one multiply and one add (that is, one fused-multiply-add) per token.
+In effect, each weight parameter participates in one multiply and one add (that is, one [fused-multiply-add](../../glossary.html#fma)) per token.
 
 ### Profiling FLOPs Count for Qwen3-8B Forward Pass
 
-Let us evaluate how accurate FLOPs count estimates are by profiling forward pass on a Qwen3-8B model running in BF16 precision on the H100 GPU. Qwen3-8B uses grouped multi-query attention (GQA) rather than MHA considered here; also, its MLP uses gating einsum. We refer to the [Transformer Accounting](https://jax-ml.github.io/scaling-book/transformers/) chapter of the Scaling book for details on how that changes the FLOPs estimate. FlashAttention-2 was used as the attention backend. Only the logits for the last token was generated, so we account $2DV$ FLOPs for the unembedding layer. We vary the sequence lengths and for each len, we collect the number of BF16 FLOPs performed by the Tensor Cores using Nsight Compute. ^[Ideally BF16 FLOPs of ordinary CUDA Cores (non-matmul ops) should also be collected. This results in large profiling overhead due Nsight Compute replays, so we avoided collecting them.]
+Let us evaluate how accurate FLOPs count estimates are by profiling forward pass on a Qwen3-8B model running in [BF16](../../glossary.html#bf16) precision on the H100 GPU. Qwen3-8B uses grouped multi-query attention ([GQA](../../glossary.html#gqa)) rather than MHA considered here; also, its MLP uses [gating einsum](../../glossary.html#gated-ffn). We refer to the [Transformer Accounting](https://jax-ml.github.io/scaling-book/transformers/) chapter of the Scaling book for details on how that changes the FLOPs estimate. FlashAttention-2 was used as the attention backend. Only the logits for the last token was generated, so we account $2DV$ FLOPs for the unembedding layer. We vary the sequence lengths and for each len, we collect the number of BF16 FLOPs performed by the [Tensor Cores](../../glossary.html#tensor-cores) using [Nsight Compute](../../glossary.html#nsight-compute). ^[Ideally BF16 FLOPs of ordinary CUDA Cores (non-matmul ops) should also be collected. This results in large profiling overhead due Nsight Compute replays, so we avoided collecting them.]
 
 ::: {.intro-figure}
 ![**Figure**: Ratio of BF16 FLOPs done by Tensor Cores (using profiler) to thumb rule FLOPs for Qwen3-8B with varying sequence lengths.](qwen3_flop_ratios.png){width=70%}
