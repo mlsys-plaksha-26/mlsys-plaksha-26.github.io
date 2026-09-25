@@ -45,3 +45,33 @@ Bonus:
 4. Compare the runtimes of the `wmma_simple()` and `wmma_shared()`; the provided codebase reports these. Does using shared memory staging help in speeding up the kernel? Explain why or why not. 
 
 **Deliverables**: Completed `wmma_kernels.cu` and `wmma_assignment.txt`.
+
+### Supplementary
+
+#### Mapping of Warps to Output 
+
+Our blocks have dimensions `{blockDim.x = 64, blockDim.y = 2}`. CUDA groups consecutive linear thread IDs into warps, with `x` dimension varying the fastest. Hence the warps organize themselves in a 2 x 2 arrangement within a block.
+
+The mapping of threads to output in this assignment is not scalar - that is, one thread is not responsible for computing one output element. Instead all 32 threads of a warp cooperate to derive a 16 x 16 output tile. As a result, one block is responsible for computing a 32 x 32 portion of the output matrix as shown by the following figure.
+
+::: {.intro-figure}
+![**Figure**: Mapping of warps to output tiles](assignment_fig1.png){width=130%}
+:::
+
+#### Declaring Fragments
+
+Consider the following declaration in `tile_mma.cuh: 28 - tile_mma()`:
+
+`wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> a_frag;`
+
+`a_frag` is a per-thread object whose matrix data is intended to reside in that thread's registers. Each of the warp's 32 threads declares its own `a_frag`. Together, those fragments represent the warp's A_tile[16, 8]. How the 16 x 8 elements of A_tile distribute over the warp's thread registers is unspecified and we cannot make any assumption about that. (A side note: `wmma:fragment` is a class template; providing our arguments results in a concrete type.)
+
+#### Loading Fragments
+
+The line that actually moves data from tile to fragments is `tile_mma.cuh: 31 - tile_mma()`:
+
+`wmma::load_matrix_sync(a_frag, a_tile_ptr, lda);`
+
+The use of `sync` points to the fact that our mental model of warp-synchrony - that is, all threads in a warp execute instructions in lock step in [SIMD](../../glossary.html#simd)-like fashion - is not quite accurate. Modern GPUs allows independent thread scheduling, maintaining separate execution state and [program counter](../../glossary.html#pc) per thread. This was done for more efficiency and flexibility; threads can now diverge and reconverge at sub-warp granularity.
+
+

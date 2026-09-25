@@ -5,7 +5,9 @@ author:
     affiliation: Plaksha University
 ---
 
-[**BF16 (Brain floating point)**]{#bf16}: A 16-bit floating-point format with 1 sign bit, 8 exponent bits, and 7 fraction bits. It offers approximately the same numerical range as FP32 but lower precision, while using half the storage. Widely used in model training and inference.
+[**BF16 (Brain floating point)**]{#bf16}: A 16-bit floating-point format that offers approximately the same numerical range as FP32 but lower precision, while using half the storage. Widely used in model training and inference.
+
+![](slides/bf16.png){width=60%}
 
 [**Compute capability**]{#compute-capability}: A version number, such as 8.6, that identifies the hardware features supported by an NVIDIA GPU. CUDA compiler targets use that number in names such as `compute_86` (virtual architecture) and `sm_86` (real architecture).
 
@@ -19,7 +21,11 @@ author:
 
 [**FP16 (half precision)**]{#fp16}: A 16-bit floating-point format with 1 sign bit, 5 exponent bits, and 10 fraction bits. It offers greater precision than BF16 but a much narrower numerical range.
 
+![](slides/fp16.png){width=60%}
+
 [**FP32 (single precision)**]{#fp32}: A 32-bit floating-point format with 1 sign bit, 8 exponent bits, and 23 fraction bits. It provides approximately seven significant decimal digits of precision.
+
+![](slides/fp32.png)
 
 [**Fused multiply-add (FMA)**]{#fma}: Single instruction that performs $a * b + c$ with a single rounding step after multiplication and addition. A scalar FMA instruction counts as two floating-point operations (FLOPs)
 
@@ -51,17 +57,23 @@ where $i$ indexes element in the vector. $\epsilon$ is a small positive constant
 
 [**Prefetching**]{#prefetching}: Fetching data before it's needed, initiated either automatically by hardware or explicitly by software. By overlapping data transfer with computation, prefetching can reduce memory stalls and improve compute-unit utilization. 
 
+[**Program counter (PC)**]{#pc}: A processor register that holds the address of the instruction to execute next.
+
 [**Rectified linear unit (ReLU)**]{#relu}: A non-linear activation function defined as $y = \max(0, x)$ applied independently to each element of its input. It helps to avoid a few numerical issues in training deep neural networks.
 
 [**Reduction**]{#reduction}: Combining a collection of values into a single result using an operation such as sum, maximum, or product. Reducing along a dimension combines values along that dimension while keeping the other indices fixes. For instance, $C[i,  j]= \sum_k A[i, k]*B[k, j]$ performs a sum reduction over $k$.
 
 [**Shared memory**]{#shared-memory}: A small, high-bandwidth, programmer-managed memory located on each streaming multiprocessor. Threads in the same thread block can use it to share and reuse data, reducing accesses to slower GPU global memory.
 
+[**SIMD (Single Instruction, Multiple Data)**]{#simd}: An execution model in which one instruction applies the same operation to multiple data elements at once.
+
 [**Streaming multiprocessor (SM)**]{#sm}: A processing unit within a GPU that executes the thread blocks assigned to it. It contains warp schedulers, CUDA and Tensor cores, registers, shared memory, and an L1 cache. Multiple thread blocks can reside on an SM simultaneously, subject to resource limits.
 
 [**Tensor cores**]{#tensor-cores}: Specialized arithmetic units within an SM that executes matrix multiply-accumulate instructions at high throughput. They operate on small matrix tiles, with supported data types and tile sizes depending on the GPU architecture.
 
 [**TF32 (TensorFloat-32)**]{#tf32}: A 32-bit representation used for computation by Tensor Cores. It combines FP32’s exponent range with FP16’s reduced fraction precision. This precision reduction can be tolerated for neural networks and TF32 lets the GPU multiply matrices much faster. The inputs are typically stored as FP32 but are converted to TF32 for multiplication; output is in FP32.
+
+![](slides/tf32.png)
 
 [**Throughput**]{#throughput}: The amount of work completed per unit of time. Compute throughput is commonly measured in floating-point operations per second (FLOPs/sec).
 

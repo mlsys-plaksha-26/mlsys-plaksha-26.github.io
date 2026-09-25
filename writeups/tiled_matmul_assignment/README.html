@@ -50,6 +50,7 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#description" id="toc-description" class="nav-link active" data-scroll-target="#description">Description</a></li>
   <li><a href="#tasks" id="toc-tasks" class="nav-link" data-scroll-target="#tasks">Tasks</a></li>
+  <li><a href="#supplementary" id="toc-supplementary" class="nav-link" data-scroll-target="#supplementary">Supplementary</a></li>
   </ul>
 </nav>
 </div>
@@ -125,6 +126,34 @@ ul.task-list li input[type="checkbox"] {
 <li>Compare the runtimes of the <code>wmma_simple()</code> and <code>wmma_shared()</code>; the provided codebase reports these. Does using shared memory staging help in speeding up the kernel? Explain why or why not.</li>
 </ol>
 <p><strong>Deliverables</strong>: Completed <code>wmma_kernels.cu</code> and <code>wmma_assignment.txt</code>.</p>
+</section>
+<section id="supplementary" class="level3">
+<h3 class="anchored" data-anchor-id="supplementary">Supplementary</h3>
+<section id="mapping-of-warps-to-output" class="level4">
+<h4 class="anchored" data-anchor-id="mapping-of-warps-to-output">Mapping of Warps to Output</h4>
+<p>Our blocks have dimensions <code>{blockDim.x = 64, blockDim.y = 2}</code>. CUDA groups consecutive linear thread IDs into warps, with <code>x</code> dimension varying the fastest. Hence the warps organize themselves in a 2 x 2 arrangement within a block.</p>
+<p>The mapping of threads to output in this assignment is not scalar - that is, one thread is not responsible for computing one output element. Instead all 32 threads of a warp cooperate to derive a 16 x 16 output tile. As a result, one block is responsible for computing a 32 x 32 portion of the output matrix as shown by the following figure.</p>
+<div class="intro-figure">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="assignment_fig1.png" class="img-fluid figure-img" style="width:130.0%"></p>
+<figcaption><strong>Figure</strong>: Mapping of warps to output tiles</figcaption>
+</figure>
+</div>
+</div>
+</section>
+<section id="declaring-fragments" class="level4">
+<h4 class="anchored" data-anchor-id="declaring-fragments">Declaring Fragments</h4>
+<p>Consider the following declaration in <code>tile_mma.cuh: 28 - tile_mma()</code>:</p>
+<p><code>wmma::fragment&lt;wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major&gt; a_frag;</code></p>
+<p><code>a_frag</code> is a per-thread object whose matrix data is intended to reside in that thread’s registers. Each of the warp’s 32 threads declares its own <code>a_frag</code>. Together, those fragments represent the warp’s A_tile[16, 8]. How the 16 x 8 elements of A_tile distribute over the warp’s thread registers is unspecified and we cannot make any assumption about that. (A side note: <code>wmma:fragment</code> is a class template; providing our arguments results in a concrete type.)</p>
+</section>
+<section id="loading-fragments" class="level4">
+<h4 class="anchored" data-anchor-id="loading-fragments">Loading Fragments</h4>
+<p>The line that actually moves data from tile to fragments is <code>tile_mma.cuh: 31 - tile_mma()</code>:</p>
+<p><code>wmma::load_matrix_sync(a_frag, a_tile_ptr, lda);</code></p>
+<p>The use of <code>sync</code> points to the fact that our mental model of warp-synchrony - that is, all threads in a warp execute instructions in lock step in <a href="../../glossary.html#simd">SIMD</a>-like fashion - is not quite accurate. Modern GPUs allows independent thread scheduling, maintaining separate execution state and <a href="../../glossary.html#pc">program counter</a> per thread. This was done for more efficiency and flexibility; threads can now diverge and reconverge at sub-warp granularity.</p>
+</section>
 </section>
 
 </main>
