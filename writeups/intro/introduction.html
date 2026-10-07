@@ -135,9 +135,8 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="a-puzzle" class="level2">
 <h2 class="anchored" data-anchor-id="a-puzzle">A Puzzle</h2>
-<p>Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A100 GPU and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 34.9 ms per token on average. The token generation throughput is 28.7 tokens/s. What is the simplest latency estimate we can make?</p>
-<p>The 8.2B parameter Qwen3-8B model does approximately 2 * (num of parameters) = 2 * (8.2 * 1e9) FLOPs = 16.4 GFLOPs per generated token. (We’ll derive this thumb rule later).</p>
-<p>The <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf">A100</a> has a peak compute throughput as 312 TFLOPs/s (dense matrix multiplication, BF16/FP16 Tensor Cores). 16.4 GFLOPs / 312 TFLOPs/s gives 0.05 ms. Hence, we observe a discrepancy by a factor of ~700x.</p>
+<p>Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A10 GPU with 24 GB DRAM and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 45.0 ms per token on average <a href="https://github.com/mlsys-plaksha-26/mlsys-plaksha-26.github.io/tree/main/writeups/intro/code">code</a>. The token generation throughput is 22.2 tokens/s. What is the simplest latency estimate we can make?</p>
+<p>Qwen3-8B does approximately 15.2 GFLOPs per generated token. (We’ll derive a simple thumb rule to calculate this in later lectures). The <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/datasheet-new/nvidia-a10-datasheet.pdf">A10</a> has a peak compute throughput of 125 TFLOPs/s (dense matrix multiplication, BF16 Tensor Cores). 15.2 GFLOPs / 125 TFLOPs/s gives 0.12 ms. Hence, we observe a discrepancy by a factor of ~375x.</p>
 <p>Clearly, peak FLOPs alone is the wrong model for this workload. Why? One of our objectives is to learn enough systems concepts to reason about discrepancies such as this.</p>
 </section>
 <section id="efficiency-is-key" class="level2">
@@ -195,7 +194,7 @@ ul.task-list li input[type="checkbox"] {
 <li><p>One can take a principled approach to make performance estimates, measure quantities experimentally, locate bottlenecks using profilers and form hypotheses about possible improvements.</p></li>
 <li><p>ML Systems concepts are more durable and apply even when the AI models and hardware they run on are evolving rapidly. <a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a></p></li>
 </ol>
-<p>Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 34.9ms per token actually go, and what can be done to reduce it.</p>
+<p>Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 45.0 ms/token actually go, and what can be done to reduce it.</p>
 </section>
 
 
