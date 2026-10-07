@@ -45,11 +45,9 @@ LLM inference poses special computational challenges that are distinct from trai
 
 ## A Puzzle 
 
-Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A100 GPU and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 34.9 ms per token on average. The token generation throughput is 28.7 tokens/s. What is the simplest latency estimate we can make? 
+Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A10 GPU with 24 GB DRAM and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 45.0 ms per token on average [code](https://github.com/mlsys-plaksha-26/mlsys-plaksha-26.github.io/tree/main/writeups/intro/code). The token generation throughput is 22.2 tokens/s. What is the simplest latency estimate we can make? 
 
-The 8.2B parameter Qwen3-8B model does approximately 2 * (num of parameters) = 2 * (8.2 * 1e9) FLOPs = 16.4 GFLOPs per generated token. (We'll derive this thumb rule later).
-
-The [A100](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf) has a peak compute throughput as 312 TFLOPs/s (dense matrix multiplication, BF16/FP16 Tensor Cores). 16.4 GFLOPs / 312 TFLOPs/s gives 0.05 ms. Hence, we observe a discrepancy by a factor of ~700x.
+Qwen3-8B does approximately 15.2 GFLOPs per generated token. (We'll derive a simple thumb rule to calculate this in later lectures). The [A10](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/datasheet-new/nvidia-a10-datasheet.pdf) has a peak compute throughput of 125 TFLOPs/s (dense matrix multiplication, BF16 Tensor Cores). 15.2 GFLOPs / 125 TFLOPs/s gives 0.12 ms. Hence, we observe a discrepancy by a factor of ~375x.
 
 Clearly, peak FLOPs alone is the wrong model for this workload. Why? One of our objectives is to learn enough systems concepts to reason about discrepancies such as this. 
 
@@ -96,5 +94,5 @@ For our purposes, ML Systems is the study of how models and workloads, software 
 
 3. ML Systems concepts are more durable and apply even when the AI models and hardware they run on are evolving rapidly. ^[Eric Auld expresses this point neatly in his [post](https://ericauld.github.io/2025/03/04/math-to-gpu.html)]
 
-Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 34.9ms per token actually go, and what can be done to reduce it.
+Returning to our puzzle, the rest of the course will develop the tools and concepts needed to explain where those 45.0 ms/token actually go, and what can be done to reduce it.
 
