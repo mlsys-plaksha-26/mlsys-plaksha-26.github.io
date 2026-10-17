@@ -45,7 +45,7 @@ LLM inference poses special computational challenges that are distinct from trai
 
 ## A Puzzle 
 
-Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A10 GPU with 24 GB DRAM and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 45.0 ms per token on average [code](https://github.com/mlsys-plaksha-26/mlsys-plaksha-26.github.io/tree/main/writeups/intro/code). The token generation throughput is 22.2 tokens/s. What is the simplest latency estimate we can make? 
+Let us give a prompt of 128 tokens to a Qwen3-8B model running on an A10 GPU with 24 GB DRAM and measure the inter-token latency (ITL). We use BF16 for both weights and activations. Using PyTorch timing, we measure decode latency as 45.0 ms per token on average. The token generation throughput is 22.2 tokens/s. What is the simplest latency estimate we can make? 
 
 Qwen3-8B does approximately 15.2 GFLOPs per generated token. (We'll derive a simple thumb rule to calculate this in later lectures). The [A10](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/datasheet-new/nvidia-a10-datasheet.pdf) has a peak compute throughput of 125 TFLOPs/s (dense matrix multiplication, BF16 Tensor Cores). 15.2 GFLOPs / 125 TFLOPs/s gives 0.12 ms. Hence, we observe a discrepancy by a factor of ~375x.
 

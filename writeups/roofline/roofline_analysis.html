@@ -86,6 +86,7 @@ window.Quarto = {
   <li><a href="#roofline-plot" id="toc-roofline-plot" class="nav-link" data-scroll-target="#roofline-plot">Roofline Plot</a></li>
   <li><a href="#achieved-intensity-and-throughput" id="toc-achieved-intensity-and-throughput" class="nav-link" data-scroll-target="#achieved-intensity-and-throughput">Achieved Intensity and Throughput</a></li>
   <li><a href="#matmul-kernel-example" id="toc-matmul-kernel-example" class="nav-link" data-scroll-target="#matmul-kernel-example">Matmul Kernel Example</a></li>
+  <li><a href="#returning-to-our-puzzle" id="toc-returning-to-our-puzzle" class="nav-link" data-scroll-target="#returning-to-our-puzzle">Returning to our Puzzle</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -291,6 +292,21 @@ Table&nbsp;1: Recorded measurements for FP32 multiplication of two 4096 by 4096 
 </div>
 <p>We notice that all three implementations do almost the same arithmetic FLOPs. The shared-memory optimized version makes better reuse of data read from global memory (less total DRAM traffic), hence it shifts mostly to the right of the naive version. However, the 4.2x memory traffic reduction led to only 1.14x speedup, indicating the presence of other bottlenecks. The cuBLAS implementation further greatly reduces the DRAM traffic and adds other optimizations to bring achieved compute throughput closer to its peak value. Due to less DRAM traffic, cuBLAS kernel did not require saturating DRAM bandwidth.</p>
 </section>
+<section id="returning-to-our-puzzle" class="level3">
+<h3 class="anchored" data-anchor-id="returning-to-our-puzzle">Returning to our Puzzle</h3>
+<p>Recall from Introduction that we gave a prompt of 128 tokens to Qwen3-8B running in BF16 precision on an A10 GPU and measured the average decode latency as 45.0 ms at batch size one. We derived an initial estimate in that chapter of 0.12 ms, which was less by ~375x than the measured value.</p>
+<p>We can refine our estimate using roofline analysis. Consider that each decode step reads almost all the memory’s weights (the input embedding matrix lookup accesses only the selected row). Reading approximately 15.14 GB of weights at 600 GB/s already takes about 25.2ms even before we’ve accounted for additional memory traffic. To pursue this, we profile a single decode step using Nsight Compute to obtain the following quantities (summed up over all kernels):</p>
+<p><code>BF16 Tensor Core FLOPs</code>: 504.93 GFLOPs <a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p><code>DRAM data transfer</code>: 17.89 GB (17.84 GB read + 41.92 MB write) <a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+<p>Our A10 GPU has peak compute throughput of 125 TFLOPs/sec (BF16, dense) and peak DRAM bandwidth of 600 GB/sec.&nbsp;We can calculate these two time durations:</p>
+<p><span class="math inline">\(T_{compute} = 504.93e9 / 125e12 = 4.04 ms\)</span> <a href="#fn8" class="footnote-ref" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+<p><span class="math inline">\(T_{memory} = 17.89e9 / 600e9 = 29.81 ms\)</span></p>
+<p>Hence,</p>
+<p><span class="math display">\[\begin{equation}
+T_{roofline} = max(T_{compute}, T_{memory}) = 29.81 ms
+\end{equation}\]</span></p>
+<p>This is a lower-bound on the decode latency assuming peak resource rates and ideal compute-transfer overlap. The memory-transfer 29.81 ms lower bound dominates the 4.04 ms Tensor Core arithmetic bound. This explains why our compute-only estimate in the Introduction was far too optimistic. The measured latency of 45.0 ms is ~1.5x this lower bound. Potential factors that may explain the remaining gap include imperfect bandwidth utilization, kernel execution overheads, and limited overlap; profiling can clarify their contributions.</p>
+</section>
 </section>
 
 
@@ -302,6 +318,9 @@ Table&nbsp;1: Recorded measurements for FP32 multiplication of two 4096 by 4096 
 <li id="fn3"><p>Achived intensity is using a different numerator (total executed FLOPs) than ideal intensity (total useful FLOPs). Hence, ideal intensity may not be an upper-bound on the achieved value. Redundant arithmetic can increase achieved intensity without improving useful performance.<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn4"><p>It can still benefit from cache hits<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn5"><p>A10 has an advertised peak FP32 throughput of 31.24 TFLOPs/sec at maximum clock frequency of 1.7GHz. However, the profiler ran at clock frequency of 885 MHz for all three runs and the peak FP32 throughput available at this frequency was 16.31 TFLOPs/sec, so we report this for a fair comparison.<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>Our thumb-rule suggests roughly ~2 x (num of linear parameters) of useful arithmetic FLOPs, that is, 15.2 GFLOPs for Qwen3-8B. The likely explanation for the discrepancy is that a Tensor Core kernel computes matrix multiplications in a tiled manner. To accommodate this with batch size of 1, padding is done resulting in a lot of tile overhead. The profiler reports executed Tensor Core FLOPs including work on padded dimensions.<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>Qwen3-8B has 8.2B parameters. Excluding input embedding matrix, that involves a simple lookup, we end up with 7.57B parameters. This amounts to 7.57x2 GB = 15.14 GB of read traffic. We measured 17.84 GB, about 2.7 GB above our estimate. Additional traffic likely arises from weight rereads, intermediate activations, and KV-cache operations. At 128 tokens in BF16, the KV cache size here is only ~19MB.<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p>Actually this is lower bound on Tensor Core computation time; we did not capture non-Tensor Core FLOPs.<a href="#fnref8" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section></div></main>
 <!-- /main column -->
